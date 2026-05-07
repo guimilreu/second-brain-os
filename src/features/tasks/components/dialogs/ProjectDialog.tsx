@@ -23,7 +23,7 @@ type ProjectDialogProps = {
 function makeInitial(project?: Project | null) {
   return project
     ? { name: project.name, description: project.description, color: project.color }
-    : { name: "", description: "", color: "#635bff" };
+    : { name: "", description: "", color: "#ffc100" };
 }
 
 export function ProjectDialog({ open, onClose, project, onSaved }: ProjectDialogProps) {

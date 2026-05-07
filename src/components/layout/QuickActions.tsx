@@ -1,6 +1,7 @@
 "use client";
 
 import { Landmark, ListTodo, Plus, Sparkles } from "lucide-react";
+import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,18 +10,24 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { springSnap } from "@/lib/motion/spring";
 
 export function QuickActions() {
   const router = useRouter();
 
   return (
-    <div className="fixed bottom-4 right-4 z-40 lg:bottom-6 lg:right-6">
+    <motion.div
+      initial={{ opacity: 0, scale: 0.86, y: 24 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      transition={{ ...springSnap, delay: 0.15 }}
+      className="fixed bottom-4 right-4 z-40 lg:bottom-6 lg:right-6"
+    >
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
             <Button
               size="icon-lg"
-              className="rounded-full shadow-2xl shadow-primary/30"
+              className="rounded-full border border-border bg-foreground text-background shadow-paper-sm hover:bg-foreground/90"
               aria-label="Ações rápidas"
             />
           }
@@ -42,6 +49,6 @@ export function QuickActions() {
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-    </div>
+    </motion.div>
   );
 }

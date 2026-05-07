@@ -2,6 +2,7 @@
 
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "sonner";
+import { MotionRoot } from "@/components/providers/MotionRoot";
 
 type AppProvidersProps = {
   children: React.ReactNode;
@@ -9,9 +10,11 @@ type AppProvidersProps = {
 
 export function AppProviders({ children }: AppProvidersProps) {
   return (
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-      {children}
-      <Toaster richColors position="top-right" closeButton />
-    </ThemeProvider>
+    <MotionRoot>
+      <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
+        {children}
+        <Toaster richColors position="top-right" closeButton />
+      </ThemeProvider>
+    </MotionRoot>
   );
 }

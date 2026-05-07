@@ -5,7 +5,7 @@ export const bankAccountSchema = z.object({
   institution: z.string().min(2),
   type: z.enum(["checking", "savings", "wallet", "investment", "credit"]).default("checking"),
   balance: z.coerce.number().default(0),
-  color: z.string().default("#635bff"),
+  color: z.string().default("#ffc100"),
   icon: z.string().default("Landmark"),
 });
 

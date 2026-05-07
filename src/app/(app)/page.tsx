@@ -1,9 +1,10 @@
 import { differenceInCalendarDays, endOfMonth, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { ArrowDownLeft, ArrowUpRight, CheckCircle2, Landmark, ListTodo, Sparkles, Target, TrendingUp } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, Landmark, ListTodo, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { MetricCard } from "@/components/ui/MetricCard";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { Reveal } from "@/components/motion/Reveal";
 import { getFinanceOverview } from "@/features/finance/lib/data";
 import { getTasksOverview } from "@/features/tasks/lib/data";
 import { requireCurrentUser } from "@/lib/auth/current-user";
@@ -51,12 +52,13 @@ export default async function DashboardPage() {
       />
 
       {/* KPIs */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <Reveal>
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard
           title="Saldo total"
           value={formatCurrency(finance.totalBalance)}
           detail={`${finance.accounts.length} conta${finance.accounts.length !== 1 ? "s" : ""}`}
-          icon={Landmark}
+          icon="landmark"
           trend="neutral"
           index={0}
         />
@@ -65,7 +67,7 @@ export default async function DashboardPage() {
           value={formatCurrency(finance.forecast.freeToSpend)}
           detail="Este mês, após recorrências"
           trend={finance.forecast.freeToSpend >= 0 ? "up" : "down"}
-          icon={TrendingUp}
+          icon="trending-up"
           index={1}
         />
         <MetricCard
@@ -73,22 +75,24 @@ export default async function DashboardPage() {
           value={`${doneTasks}/${totalTasks} tarefas`}
           detail={`${sprintProgress}% concluído`}
           trend={sprintProgress >= 50 ? "up" : "neutral"}
-          icon={CheckCircle2}
+          icon="check-circle"
           index={2}
         />
         <MetricCard
           title="Metas em andamento"
           value={`${topGoals.length} ativa${topGoals.length !== 1 ? "s" : ""}`}
           detail="Cofrinhos + objetivos"
-          icon={Target}
+          icon="target"
           trend="neutral"
           index={3}
         />
       </div>
+      </Reveal>
 
       {/* Main content grid */}
-      <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
-        <section className="glass-surface rounded-[2rem] p-6 xl:col-span-2">
+      <Reveal delay={0.04}>
+        <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
+        <section className="glass-surface rounded-3xl p-6 xl:col-span-2">
           <div className="grid gap-5 lg:grid-cols-[1fr_1.2fr] lg:items-center">
             <div>
               <p className="text-sm text-muted-foreground">Decisão de hoje</p>
@@ -146,7 +150,7 @@ export default async function DashboardPage() {
         </section>
 
         {/* Recent transactions */}
-        <section className="glass-surface rounded-[2rem] p-6">
+        <section className="glass-surface rounded-3xl p-6">
           <div className="mb-5 flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">Financeiro</p>
@@ -209,7 +213,7 @@ export default async function DashboardPage() {
 
         {/* Tasks + Goals */}
         <div className="space-y-6">
-          <section className="glass-surface rounded-[2rem] p-6">
+          <section className="glass-surface rounded-3xl p-6">
             <div className="mb-4 flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Agenda financeira</p>
@@ -260,7 +264,7 @@ export default async function DashboardPage() {
           </section>
 
           {/* Urgent tasks */}
-          <section className="glass-surface rounded-[2rem] p-6">
+          <section className="glass-surface rounded-3xl p-6">
             <div className="mb-4 flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Tarefas</p>
@@ -317,7 +321,7 @@ export default async function DashboardPage() {
 
           {/* Goals progress */}
           {topGoals.length > 0 ? (
-            <section className="glass-surface rounded-[2rem] p-6">
+            <section className="glass-surface rounded-3xl p-6">
               <div className="mb-4 flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Objetivos</p>
@@ -355,8 +359,10 @@ export default async function DashboardPage() {
           ) : null}
         </div>
       </div>
+      </Reveal>
 
       {/* Module cards */}
+      <Reveal delay={0.07}>
       <div className="grid gap-5 lg:grid-cols-2">
         {[
           {
@@ -379,13 +385,13 @@ export default async function DashboardPage() {
             <Link
               key={area.href}
               href={area.href}
-              className="glass-surface group rounded-[2rem] p-6 transition duration-300 hover:-translate-y-1 hover:shadow-2xl"
+              className="glass-surface group rounded-3xl p-6 transition-[transform,border-color] duration-300 hover:-translate-y-0.5 hover:border-brand/40"
             >
               <div className="flex items-start justify-between gap-6">
                 <div className="rounded-3xl bg-brand-soft p-4 text-brand">
                   <Icon className="h-7 w-7" />
                 </div>
-                <span className="rounded-full bg-surface-soft px-3 py-1 text-sm text-muted-foreground transition group-hover:bg-brand group-hover:text-white">
+                <span className="rounded-full bg-surface-soft px-3 py-1 text-sm text-muted-foreground transition group-hover:bg-brand group-hover:text-primary-foreground">
                   {area.cta}
                 </span>
               </div>
@@ -395,8 +401,10 @@ export default async function DashboardPage() {
           );
         })}
       </div>
+      </Reveal>
 
-      <section className="glass-surface rounded-[2rem] p-6">
+      <Reveal delay={0.09}>
+      <section className="glass-surface rounded-3xl p-6">
         <div className="flex items-center gap-3">
           <div className="rounded-2xl bg-brand-soft p-3 text-brand">
             <Sparkles className="h-5 w-5" />
@@ -410,6 +418,7 @@ export default async function DashboardPage() {
           </div>
         </div>
       </section>
+      </Reveal>
     </div>
   );
 }

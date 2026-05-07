@@ -107,7 +107,7 @@ export function TransactionsSection() {
                 onClick={() => setTypeFilter(f)}
                 className={cn(
                   "rounded-xl px-3 py-1.5 font-medium transition",
-                  typeFilter === f ? "bg-brand text-white" : "text-muted-foreground hover:text-foreground",
+                  typeFilter === f ? "bg-brand text-primary-foreground" : "text-muted-foreground hover:text-foreground",
                 )}
               >
                 {f === "all" ? "Todos" : f === "income" ? "Entradas" : "Saídas"}
@@ -116,7 +116,7 @@ export function TransactionsSection() {
           </div>
           <button
             onClick={openCreate}
-            className="inline-flex items-center gap-2 rounded-2xl bg-brand px-4 py-2.5 text-sm font-medium text-white transition hover:opacity-90"
+            className="inline-flex items-center gap-2 rounded-2xl bg-brand px-4 py-2.5 text-sm font-medium text-primary-foreground transition hover:opacity-90"
           >
             <Plus className="h-4 w-4" />
             Nova
@@ -131,7 +131,7 @@ export function TransactionsSection() {
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="glass-surface flex flex-col items-center gap-4 rounded-[2rem] py-16 text-center">
+        <div className="glass-surface flex flex-col items-center gap-4 rounded-3xl py-16 text-center">
           <div className="rounded-3xl bg-brand-soft p-4 text-brand">
             <Receipt className="h-8 w-8" />
           </div>
@@ -141,14 +141,14 @@ export function TransactionsSection() {
           </div>
           <button
             onClick={openCreate}
-            className="inline-flex items-center gap-2 rounded-2xl bg-brand px-5 py-2.5 text-sm font-medium text-white"
+            className="inline-flex items-center gap-2 rounded-2xl bg-brand px-5 py-2.5 text-sm font-medium text-primary-foreground"
           >
             <Plus className="h-4 w-4" />
             Registrar transação
           </button>
         </div>
       ) : (
-        <div className="glass-surface overflow-hidden rounded-[2rem]">
+        <div className="glass-surface overflow-hidden rounded-3xl">
           {filtered.map((t, i) => (
             <div
               key={t.id}

@@ -5,7 +5,6 @@ import {
   isAfter,
   isBefore,
   isEqual,
-  isSameDay,
   startOfDay,
 } from "date-fns";
 
@@ -67,6 +66,28 @@ function isWithinRange(date: Date, start: Date, end: Date) {
     (isAfter(date, start) || isEqual(date, start)) &&
     (isBefore(date, end) || isEqual(date, end))
   );
+}
+
+/** Chave yyyy-mm-dd no calendário local (datas geradas pela regra recorrente). */
+function calendarDateKeyLocal(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+/**
+ * Dia civil armazenado na transação (prefixo yyyy-mm-dd de ISO ou calendário local).
+ * Evita `isSameDay` com instantes UTC, que mudam de dia conforme o fuso.
+ */
+function recurringOccurrenceCalendarKey(raw: string | Date): string {
+  if (typeof raw === "string") {
+    const isoDate = /^(\d{4}-\d{2}-\d{2})/.exec(raw);
+    if (isoDate) {
+      return isoDate[1];
+    }
+  }
+  return calendarDateKeyLocal(new Date(raw));
 }
 
 function clampDayOfMonth(year: number, month: number, day: number) {
@@ -189,7 +210,8 @@ export function calculateFinanceForecast(
         (transaction) =>
           transaction.recurringRuleId === occurrence.ruleId &&
           transaction.recurringOccurrenceDate &&
-          isSameDay(new Date(transaction.recurringOccurrenceDate), occurrence.date),
+          recurringOccurrenceCalendarKey(transaction.recurringOccurrenceDate) ===
+            calendarDateKeyLocal(occurrence.date),
       ),
   );
 

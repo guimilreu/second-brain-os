@@ -3,7 +3,7 @@ import { z } from "zod";
 export const projectSchema = z.object({
   name: z.string().min(2),
   description: z.string().optional().default(""),
-  color: z.string().default("#635bff"),
+  color: z.string().default("#ffc100"),
   icon: z.string().default("FolderKanban"),
 });
 

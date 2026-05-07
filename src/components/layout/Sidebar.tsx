@@ -1,21 +1,12 @@
 "use client";
 
-import {
-  Brain,
-  ChevronRight,
-  CheckSquare,
-  ShoppingBag,
-  Home,
-  Landmark,
-  LogOut,
-  Menu,
-  X,
-} from "lucide-react";
+import { CheckSquare, ShoppingBag, Home, Landmark, LogOut, Menu, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { AnimatePresence, motion } from "framer-motion";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
+import { listContainer, listItem, springDrawer, springSnap, springUI } from "@/lib/motion/spring";
 import { useUiStore } from "@/stores/ui-store";
 import { cn } from "@/lib/utils/cn";
 
@@ -43,78 +34,78 @@ function SidebarContent({ userName }: SidebarProps) {
   }
 
   return (
-    <div className="flex h-full flex-col p-4">
-      <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
+    <div className="flex h-full flex-col px-4 py-5">
+      <motion.div whileHover={{ x: 1 }} whileTap={{ scale: 0.995 }} transition={springUI}>
         <Link
           href="/"
           onClick={() => setSidebarOpen(false)}
-          className="flex items-center gap-3 rounded-3xl bg-gradient-to-br from-primary to-primary-700 p-4 text-white shadow-xl shadow-primary/25"
+          className="group flex items-center gap-3 rounded-2xl px-2 py-2 text-sidebar-foreground"
         >
-          <span className="rounded-2xl bg-white/15 p-2 backdrop-blur-sm">
-            <Brain className="h-6 w-6" />
+          <span className="grid h-9 w-9 place-items-center rounded-xl border border-sidebar-border bg-sidebar-accent text-sm font-semibold tracking-tight transition-colors group-hover:border-brand/50">
+            GM
           </span>
           <span>
-            <span className="block text-sm font-medium text-white/75">GM OS</span>
-            <span className="block text-lg font-semibold tracking-tight">Second Brain</span>
+            <span className="block text-[0.72rem] font-medium uppercase tracking-[0.22em] text-muted-foreground">
+              Second Brain
+            </span>
+            <span className="block text-sm font-semibold tracking-tight">OS pessoal</span>
           </span>
         </Link>
       </motion.div>
 
-      <nav className="mt-8 space-y-1">
-        {NAV_ITEMS.map((item, index) => {
+      <motion.nav
+        variants={listContainer}
+        initial="hidden"
+        animate="visible"
+        className="mt-8 space-y-1"
+      >
+        {NAV_ITEMS.map((item) => {
           const isActive =
             item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
           const Icon = item.icon;
 
           return (
-            <motion.div
-              key={item.href}
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: index * 0.05 + 0.08, duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-            >
+            <motion.div key={item.href} variants={listItem}>
               <Link
                 href={item.href}
                 onClick={() => setSidebarOpen(false)}
                 className={cn(
-                  "group flex items-center justify-between rounded-2xl px-4 py-3 text-sm font-medium transition-colors duration-200",
+                  "group flex items-center justify-between rounded-2xl px-3 py-2.5 text-sm font-medium transition-[background-color,color,transform] duration-200 hover:translate-x-0.5",
                   isActive
-                    ? "bg-brand-soft text-brand shadow-sm shadow-brand/10 dark:bg-primary/15 dark:text-primary"
+                    ? "bg-sidebar-accent text-sidebar-foreground"
                     : "text-muted-foreground hover:bg-surface-soft hover:text-foreground",
                 )}
               >
                 <span className="flex items-center gap-3">
-                  <Icon className="h-5 w-5 transition-transform duration-200 group-hover:scale-105" />
+                  <Icon className="h-4.5 w-4.5 transition-transform duration-200 group-hover:scale-105" />
                   {item.label}
                 </span>
-                <ChevronRight
+                <span
                   className={cn(
-                    "h-4 w-4 transition duration-200 group-hover:translate-x-0.5",
-                    isActive ? "opacity-100 text-brand dark:text-primary" : "opacity-0",
+                    "h-1.5 w-1.5 rounded-full bg-brand transition-opacity",
+                    isActive ? "opacity-100" : "opacity-0",
                   )}
                 />
               </Link>
             </motion.div>
           );
         })}
-      </nav>
+      </motion.nav>
 
-      <div className="mt-auto space-y-4 pt-6">
-        <motion.div
-          layout
-          className="rounded-3xl border border-border bg-surface/90 p-4 backdrop-blur-md dark:bg-default-50/40"
-        >
-          <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Logado como</p>
-          <p className="mt-2 font-medium">{userName}</p>
-        </motion.div>
+      <div className="mt-auto space-y-3 border-t border-sidebar-border pt-4">
+        <div className="min-w-0 px-2">
+          <p className="truncate text-sm font-medium text-sidebar-foreground">{userName}</p>
+          <p className="text-xs text-muted-foreground">Sessão ativa</p>
+        </div>
         <div className="flex items-center gap-3">
           <ThemeToggle />
           <motion.button
             type="button"
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
+            transition={springSnap}
             onClick={handleLogout}
-            className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-2xl border border-border bg-surface px-4 text-sm font-medium text-muted-foreground transition-colors hover:border-danger hover:text-danger dark:bg-default-50/30"
+            className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-full border border-sidebar-border bg-transparent px-4 text-sm font-medium text-muted-foreground transition-colors hover:border-danger/40 hover:bg-danger/5 hover:text-danger"
           >
             <LogOut className="h-4 w-4" />
             Sair
@@ -131,7 +122,7 @@ export function Sidebar({ userName }: SidebarProps) {
 
   return (
     <>
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-80 border-r border-border bg-background/85 backdrop-blur-xl lg:block">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-72 border-r border-sidebar-border bg-sidebar lg:block">
         <SidebarContent userName={userName} />
       </aside>
 
@@ -139,8 +130,9 @@ export function Sidebar({ userName }: SidebarProps) {
         type="button"
         whileHover={{ scale: 1.04 }}
         whileTap={{ scale: 0.96 }}
+        transition={springSnap}
         onClick={() => setSidebarOpen(true)}
-        className="fixed left-4 top-4 z-40 inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-border bg-surface shadow-lg dark:bg-default-50/40 lg:hidden"
+        className="fixed left-4 top-4 z-40 inline-flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card shadow-paper-sm lg:hidden"
         aria-label="Abrir menu"
       >
         <Menu className="h-5 w-5" />
@@ -154,7 +146,7 @@ export function Sidebar({ userName }: SidebarProps) {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
+              transition={springSnap}
               className="absolute inset-0 bg-black/55 backdrop-blur-[2px]"
               onClick={() => setSidebarOpen(false)}
               aria-label="Fechar menu"
@@ -163,16 +155,16 @@ export function Sidebar({ userName }: SidebarProps) {
               initial={{ x: "-104%" }}
               animate={{ x: 0 }}
               exit={{ x: "-104%" }}
-              transition={{ type: "spring", damping: 30, stiffness: 380 }}
-              className="absolute inset-y-0 left-0 flex w-[86vw] max-w-80 flex-col border-r border-border bg-background shadow-2xl"
+              transition={springDrawer}
+              className="absolute inset-y-0 left-0 flex w-[86vw] max-w-72 flex-col border-r border-border bg-sidebar shadow-paper"
             >
               <motion.button
                 type="button"
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.12 }}
+                transition={{ ...springSnap, delay: 0.08 }}
                 onClick={() => setSidebarOpen(false)}
-                className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-surface-soft dark:bg-default-100/40"
+                className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card shadow-paper-sm"
                 aria-label="Fechar menu"
               >
                 <X className="h-5 w-5" />

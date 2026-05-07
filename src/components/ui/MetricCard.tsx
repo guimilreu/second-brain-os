@@ -1,15 +1,42 @@
 "use client";
 
-import { ArrowDownRight, ArrowUpRight, type LucideIcon } from "lucide-react";
-import { motion } from "framer-motion";
+import {
+  ArrowDownRight,
+  ArrowUpRight,
+  CalendarClock,
+  CheckCircle2,
+  CreditCard,
+  Landmark,
+  PiggyBank,
+  Target,
+  TrendingUp,
+  Wallet,
+  type LucideIcon,
+} from "lucide-react";
+import { motion, useReducedMotion } from "framer-motion";
+import { springSnap, springUI } from "@/lib/motion/spring";
 import { cn } from "@/lib/utils/cn";
+
+/** Chaves estáveis serializáveis (Server Component → Client Component). */
+export const metricCardIcons = {
+  landmark: Landmark,
+  "trending-up": TrendingUp,
+  "check-circle": CheckCircle2,
+  target: Target,
+  wallet: Wallet,
+  "calendar-clock": CalendarClock,
+  "credit-card": CreditCard,
+  "piggy-bank": PiggyBank,
+} satisfies Record<string, LucideIcon>;
+
+export type MetricCardIconName = keyof typeof metricCardIcons;
 
 type MetricCardProps = {
   title: string;
   value: string;
   detail?: string;
   trend?: "up" | "down" | "neutral";
-  icon: LucideIcon;
+  icon: MetricCardIconName;
   /** Índice para entrada escalonada na lista */
   index?: number;
 };
@@ -19,22 +46,23 @@ export function MetricCard({
   value,
   detail,
   trend = "neutral",
-  icon: Icon,
+  icon,
   index = 0,
 }: MetricCardProps) {
+  const Icon = metricCardIcons[icon];
   const TrendIcon = trend === "down" ? ArrowDownRight : ArrowUpRight;
+  const prefersReducedMotion = useReducedMotion();
+  const entryTransition = prefersReducedMotion
+    ? { duration: 0.2 }
+    : { ...springUI, delay: index * 0.06 };
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 18 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{
-        delay: index * 0.06,
-        duration: 0.38,
-        ease: [0.22, 1, 0.36, 1],
-      }}
-      whileHover={{ y: -4 }}
-      className="glass-surface rounded-3xl p-5 transition-shadow duration-300 hover:shadow-2xl"
+      transition={entryTransition}
+      whileHover={prefersReducedMotion ? undefined : { y: -2 }}
+      className="glass-surface rounded-3xl p-5 transition-[box-shadow,transform] duration-300"
     >
       <div className="flex items-start justify-between gap-4">
         <div>
@@ -43,8 +71,8 @@ export function MetricCard({
         </div>
         <motion.div
           whileHover={{ rotate: [0, -6, 6, 0] }}
-          transition={{ duration: 0.45 }}
-          className="rounded-2xl bg-brand-soft p-3 text-brand dark:bg-primary/15 dark:text-primary"
+          transition={springSnap}
+          className="rounded-2xl border border-border bg-surface-soft p-2.5 text-foreground"
         >
           <Icon className="h-5 w-5" />
         </motion.div>

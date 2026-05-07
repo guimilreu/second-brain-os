@@ -67,7 +67,7 @@ export function GoalsSection() {
         </div>
         <button
           onClick={() => { setEditing(null); setDialogOpen(true); }}
-          className="inline-flex items-center gap-2 rounded-2xl bg-brand px-4 py-2.5 text-sm font-medium text-white transition hover:opacity-90"
+          className="inline-flex items-center gap-2 rounded-2xl bg-brand px-4 py-2.5 text-sm font-medium text-primary-foreground transition hover:opacity-90"
         >
           <Plus className="h-4 w-4" />
           Nova meta
@@ -77,11 +77,11 @@ export function GoalsSection() {
       {loading ? (
         <div className="grid gap-4 md:grid-cols-2">
           {[1, 2].map((i) => (
-            <div key={i} className="glass-surface h-44 animate-pulse rounded-[2rem]" />
+            <div key={i} className="glass-surface h-44 animate-pulse rounded-3xl" />
           ))}
         </div>
       ) : goals.length === 0 ? (
-        <div className="glass-surface flex flex-col items-center gap-4 rounded-[2rem] py-16 text-center">
+        <div className="glass-surface flex flex-col items-center gap-4 rounded-3xl py-16 text-center">
           <div className="rounded-3xl bg-brand-soft p-4 text-brand">
             <Target className="h-8 w-8" />
           </div>
@@ -101,7 +101,7 @@ export function GoalsSection() {
                 : 0;
 
             return (
-              <div key={goal.id} className="glass-surface group relative rounded-[2rem] p-6">
+              <div key={goal.id} className="glass-surface group relative rounded-3xl p-6">
                 <div className="absolute right-4 top-4 flex gap-1 opacity-0 transition group-hover:opacity-100">
                   <button
                     onClick={() => { setEditing(goal); setDialogOpen(true); }}

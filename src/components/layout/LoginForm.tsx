@@ -1,12 +1,33 @@
 "use client";
 
-import { Eye, EyeOff, Loader2, Mail } from "lucide-react";
+import { Brain, Eye, EyeOff, Loader2, Mail } from "lucide-react";
+import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { springUI } from "@/lib/motion/spring";
+
+const formGroup = {
+  hidden: {},
+  visible: {
+    transition: {
+      staggerChildren: 0.075,
+      delayChildren: 0.06,
+    },
+  },
+};
+
+const formRow = {
+  hidden: { opacity: 0, y: 10 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: springUI,
+  },
+};
 
 export function LoginForm() {
   const router = useRouter();
@@ -41,13 +62,31 @@ export function LoginForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="space-y-2">
+    <motion.form
+      variants={formGroup}
+      initial="hidden"
+      animate="visible"
+      onSubmit={handleSubmit}
+      className="space-y-7"
+    >
+      <motion.div variants={formRow} className="flex flex-col items-center gap-2 text-center">
+        <motion.div
+          whileHover={{ scale: 1.04 }}
+          whileTap={{ scale: 0.97 }}
+          transition={springUI}
+          className="flex items-center justify-center rounded-2xl border border-border bg-surface-soft p-3 text-foreground"
+        >
+          <Brain className="h-6 w-6" aria-hidden />
+        </motion.div>
+        <span className="text-sm font-medium text-muted-foreground">Entrar</span>
+      </motion.div>
+
+      <motion.div variants={formRow} className="space-y-2">
         <Label htmlFor="email" className="text-sm font-medium text-foreground">
           E-mail
         </Label>
         <div className="relative">
-          <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             id="email"
             name="email"
@@ -55,12 +94,12 @@ export function LoginForm() {
             placeholder="voce@email.com"
             autoComplete="email"
             required
-            className="rounded-2xl border-border bg-default-100/40 pl-9 backdrop-blur-sm hover:bg-default-100/60"
+            className="pl-9"
           />
         </div>
-      </div>
+      </motion.div>
 
-      <div className="space-y-2">
+      <motion.div variants={formRow} className="space-y-2">
         <Label htmlFor="password" className="text-sm font-medium text-foreground">
           Senha
         </Label>
@@ -69,37 +108,31 @@ export function LoginForm() {
             id="password"
             name="password"
             type={showPassword ? "text" : "password"}
-            placeholder="Sua senha"
+            placeholder="Senha"
             autoComplete="current-password"
             required
-            className="rounded-2xl border-border bg-default-100/40 pr-10 backdrop-blur-sm hover:bg-default-100/60"
+            className="pr-10"
           />
-          <button
+          <motion.button
             type="button"
+            whileHover={{ scale: 1.08 }}
+            whileTap={{ scale: 0.92 }}
+            transition={springUI}
             onClick={() => setShowPassword((v) => !v)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition hover:text-foreground"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
             aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
           >
             {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-          </button>
+          </motion.button>
         </div>
-      </div>
+      </motion.div>
 
-      <Button
-        type="submit"
-        size="lg"
-        disabled={isSubmitting}
-        className="w-full rounded-xl font-semibold shadow-lg shadow-primary/25"
-      >
-        {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-        Entrar
-      </Button>
-
-      <p className="text-center text-xs leading-relaxed text-muted-foreground">
-        O primeiro usuário é criado automaticamente com{" "}
-        <code className="text-primary">BOOTSTRAP_EMAIL</code> e{" "}
-        <code className="text-primary">BOOTSTRAP_PASSWORD</code>.
-      </p>
-    </form>
+      <motion.div variants={formRow}>
+        <Button type="submit" size="lg" disabled={isSubmitting} className="w-full font-semibold">
+          {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+          Entrar
+        </Button>
+      </motion.div>
+    </motion.form>
   );
 }

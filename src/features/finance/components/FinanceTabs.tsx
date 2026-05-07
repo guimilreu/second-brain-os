@@ -15,6 +15,7 @@ import { RecurringSection } from "@/features/finance/components/RecurringSection
 import { SavingsPotsSection } from "@/features/finance/components/SavingsPotsSection";
 import { GoalsSection } from "@/features/finance/components/GoalsSection";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { TabTransition } from "@/components/motion/TabTransition";
 
 type FinanceOverviewData = Parameters<typeof FinanceOverview>[0]["data"];
 
@@ -47,7 +48,7 @@ export function FinanceTabs({ overviewData }: FinanceTabsProps) {
             <TabsTrigger
               key={tab.id}
               value={tab.id}
-              className="flex-1 rounded-xl data-active:bg-background data-active:text-primary data-active:shadow-sm"
+              className="relative flex-1 overflow-hidden rounded-xl transition-transform duration-200 active:scale-[0.97] data-active:bg-background data-active:text-primary data-active:shadow-sm"
             >
               <Icon className="h-4 w-4 shrink-0" />
               <span className="hidden sm:inline">{tab.label}</span>
@@ -57,22 +58,34 @@ export function FinanceTabs({ overviewData }: FinanceTabsProps) {
       </TabsList>
 
       <TabsContent value="overview" className="overflow-visible pt-0">
-        <FinanceOverview data={overviewData} />
+        <TabTransition>
+          <FinanceOverview data={overviewData} />
+        </TabTransition>
       </TabsContent>
       <TabsContent value="accounts" className="overflow-visible pt-0">
-        <AccountsSection />
+        <TabTransition>
+          <AccountsSection />
+        </TabTransition>
       </TabsContent>
       <TabsContent value="transactions" className="overflow-visible pt-0">
-        <TransactionsSection />
+        <TabTransition>
+          <TransactionsSection />
+        </TabTransition>
       </TabsContent>
       <TabsContent value="recurring" className="overflow-visible pt-0">
-        <RecurringSection />
+        <TabTransition>
+          <RecurringSection />
+        </TabTransition>
       </TabsContent>
       <TabsContent value="savings" className="overflow-visible pt-0">
-        <SavingsPotsSection />
+        <TabTransition>
+          <SavingsPotsSection />
+        </TabTransition>
       </TabsContent>
       <TabsContent value="goals" className="overflow-visible pt-0">
-        <GoalsSection />
+        <TabTransition>
+          <GoalsSection />
+        </TabTransition>
       </TabsContent>
     </Tabs>
   );

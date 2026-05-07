@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { headerContainer, headerItem, springSnap } from "@/lib/motion/spring";
 
 type PageHeaderProps = {
   eyebrow?: string;
@@ -11,30 +12,29 @@ type PageHeaderProps = {
 
 export function PageHeader({ eyebrow, title, description, action }: PageHeaderProps) {
   return (
-    <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <motion.div
+      className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"
+      variants={headerContainer}
+      initial="hidden"
+      animate="visible"
+    >
       <div>
         {eyebrow ? (
           <motion.p
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.28 }}
-            className="mb-2 text-sm font-medium uppercase tracking-[0.24em] text-brand dark:text-primary"
+            variants={headerItem}
+            className="mb-2 text-xs font-medium uppercase tracking-[0.22em] text-muted-foreground"
           >
             {eyebrow}
           </motion.p>
         ) : null}
         <motion.h1
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.34, delay: 0.04, ease: [0.22, 1, 0.36, 1] }}
-          className="text-3xl font-semibold tracking-tight md:text-5xl"
+          variants={headerItem}
+          className="font-heading max-w-4xl text-3xl font-semibold tracking-[-0.04em] md:text-5xl"
         >
           {title}
         </motion.h1>
         <motion.p
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.34, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
+          variants={headerItem}
           className="mt-3 max-w-2xl text-base leading-7 text-muted-foreground"
         >
           {description}
@@ -42,14 +42,14 @@ export function PageHeader({ eyebrow, title, description, action }: PageHeaderPr
       </div>
       {action ? (
         <motion.div
-          initial={{ opacity: 0, scale: 0.96 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.28, delay: 0.14 }}
+          variants={headerItem}
+          whileHover={{ y: -3 }}
+          transition={springSnap}
           className="flex shrink-0 items-center gap-3"
         >
           {action}
         </motion.div>
       ) : null}
-    </div>
+    </motion.div>
   );
 }

@@ -132,7 +132,7 @@ export async function getFinanceOverview(userId: string) {
       return {
         potId,
         name: pot?.name ?? "Cofrinho",
-        color: pot?.color ?? "#635bff",
+        color: pot?.color ?? "#ffc100",
         amount,
       };
     })

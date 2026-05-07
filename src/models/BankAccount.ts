@@ -11,7 +11,7 @@ const BankAccountSchema = new Schema(
       default: "checking",
     },
     balance: { type: Number, required: true, default: 0 },
-    color: { type: String, required: true, default: "#635bff" },
+    color: { type: String, required: true, default: "#ffc100" },
     icon: { type: String, required: true, default: "Landmark" },
     isArchived: { type: Boolean, default: false },
   },

@@ -33,7 +33,7 @@ const ACCOUNT_TYPES = [
 function makeInitial(account?: Account | null) {
   return account
     ? { name: account.name, institution: account.institution, type: account.type, balance: account.balance, color: account.color }
-    : { name: "", institution: "", type: "checking", balance: 0, color: "#635bff" };
+    : { name: "", institution: "", type: "checking", balance: 0, color: "#ffc100" };
 }
 
 export function AccountDialog({ open, onClose, account, onSaved }: AccountDialogProps) {

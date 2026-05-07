@@ -19,6 +19,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import axios from "axios";
+import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
@@ -29,6 +30,7 @@ import { cn } from "@/lib/utils/cn";
 import { MonthBudgetDialog } from "./MonthBudgetDialog";
 import { WishlistItemCard } from "./WishlistItemCard";
 import { WishlistItemDialog } from "./WishlistItemDialog";
+import { springPage } from "@/lib/motion/spring";
 
 const brl = new Intl.NumberFormat("pt-BR", {
   style: "currency",
@@ -388,7 +390,12 @@ export function WishlistBoard({ overview }: { overview: WishlistOverview }) {
   }
 
   return (
-    <div className="space-y-6">
+    <motion.div
+      initial={{ opacity: 0, y: 18 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={springPage}
+      className="space-y-6"
+    >
       <div className="flex flex-col gap-4 rounded-3xl border border-border bg-surface/80 p-4 backdrop-blur-md dark:bg-default-50/30 lg:flex-row lg:items-start lg:justify-between">
         <div className="space-y-2">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
@@ -479,7 +486,7 @@ export function WishlistBoard({ overview }: { overview: WishlistOverview }) {
             <button
               type="button"
               onClick={openCreate}
-              className="inline-flex items-center gap-2 rounded-2xl bg-primary px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-primary/25"
+              className="inline-flex items-center gap-2 rounded-2xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/25"
             >
               <Plus className="h-4 w-4" />
               Novo desejo
@@ -578,6 +585,6 @@ export function WishlistBoard({ overview }: { overview: WishlistOverview }) {
         }
         prefillRevision={prefillRevision}
       />
-    </div>
+    </motion.div>
   );
 }

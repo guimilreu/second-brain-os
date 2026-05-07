@@ -1,5 +1,6 @@
 import { CalendarDays, Plus } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { Reveal } from "@/components/motion/Reveal";
 import { TasksBoard } from "@/features/tasks/components/TasksBoard";
 import { getTasksOverview } from "@/features/tasks/lib/data";
 import { requireCurrentUser } from "@/lib/auth/current-user";
@@ -29,7 +30,7 @@ export default async function TasksPage() {
             </a>
             <a
               href="#tasks-board"
-              className="inline-flex rounded-2xl bg-brand px-4 py-3 text-sm font-medium text-white shadow-lg shadow-indigo-500/20"
+              className="inline-flex rounded-2xl bg-brand px-4 py-3 text-sm font-medium text-primary-foreground shadow-lg shadow-primary/25"
             >
               <Plus className="mr-2 h-4 w-4" />
               Planejar
@@ -37,7 +38,9 @@ export default async function TasksPage() {
           </>
         }
       />
-      <TasksBoard {...data} />
+      <Reveal delay={0.03}>
+        <TasksBoard {...data} />
+      </Reveal>
     </div>
   );
 }

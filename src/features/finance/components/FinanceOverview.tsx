@@ -15,7 +15,6 @@ import axios from "axios";
 import {
   AlertTriangle,
   CalendarClock,
-  CreditCard,
   Loader2,
   PiggyBank,
   Plus,
@@ -202,7 +201,7 @@ export function FinanceOverview({ data }: FinanceOverviewProps) {
           title="Saldo total"
           value={formatCurrency(data.totalBalance)}
           detail={`${data.accounts.length} bancos/carteiras`}
-          icon={Wallet}
+          icon="wallet"
           index={0}
         />
         <MetricCard
@@ -210,7 +209,7 @@ export function FinanceOverview({ data }: FinanceOverviewProps) {
           value={formatCurrency(data.forecast.expectedIncome)}
           detail={`${formatCurrency(data.forecast.lateIncome)} em atraso`}
           trend="up"
-          icon={CalendarClock}
+          icon="calendar-clock"
           index={1}
         />
         <MetricCard
@@ -218,7 +217,7 @@ export function FinanceOverview({ data }: FinanceOverviewProps) {
           value={formatCurrency(data.forecast.expectedExpenses)}
           detail={`${formatCurrency(data.forecast.plannedExpenses)} planejados`}
           trend="down"
-          icon={CreditCard}
+          icon="credit-card"
           index={2}
         />
         <MetricCard
@@ -226,7 +225,7 @@ export function FinanceOverview({ data }: FinanceOverviewProps) {
           value={formatCurrency(data.forecast.freeToSpend)}
           detail={`${formatCurrency(dailyBudget)} por dia até virar o mês`}
           trend={data.forecast.freeToSpend >= 0 ? "up" : "down"}
-          icon={PiggyBank}
+          icon="piggy-bank"
           index={3}
         />
       </div>
@@ -395,7 +394,7 @@ export function FinanceOverview({ data }: FinanceOverviewProps) {
                 <XAxis dataKey="name" tickLine={false} axisLine={false} />
                 <YAxis tickFormatter={(value) => `R$${value}`} tickLine={false} axisLine={false} />
                 <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                <Bar dataKey="total" fill="#8b7cff" radius={[12, 12, 0, 0]} />
+                <Bar dataKey="total" fill="#ffc100" radius={[12, 12, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -464,7 +463,7 @@ export function FinanceOverview({ data }: FinanceOverviewProps) {
               <Tooltip formatter={(value) => formatCurrency(Number(value))} />
               <Bar dataKey="income" name="Entradas" fill="#22c55e" radius={[10, 10, 0, 0]} />
               <Bar dataKey="expenses" name="Saídas" fill="#ef4444" radius={[10, 10, 0, 0]} />
-              <Bar dataKey="net" name="Resultado" fill="#8b7cff" radius={[10, 10, 0, 0]} />
+              <Bar dataKey="net" name="Resultado" fill="#ffc100" radius={[10, 10, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -506,8 +505,8 @@ export function FinanceOverview({ data }: FinanceOverviewProps) {
                 type="monotone"
                 dataKey="freeToSpend"
                 name="Livre"
-                stroke="#8b7cff"
-                fill="#8b7cff"
+                stroke="#ffc100"
+                fill="#ffc100"
                 fillOpacity={0.18}
               />
               <Area

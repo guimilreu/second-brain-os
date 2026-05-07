@@ -75,7 +75,7 @@ export function AccountsSection() {
         </div>
         <button
           onClick={openCreate}
-          className="inline-flex items-center gap-2 rounded-2xl bg-brand px-4 py-2.5 text-sm font-medium text-white transition hover:opacity-90"
+          className="inline-flex items-center gap-2 rounded-2xl bg-brand px-4 py-2.5 text-sm font-medium text-primary-foreground transition hover:opacity-90"
         >
           <Plus className="h-4 w-4" />
           Nova conta
@@ -85,11 +85,11 @@ export function AccountsSection() {
       {loading ? (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="glass-surface h-40 animate-pulse rounded-[2rem]" />
+            <div key={i} className="glass-surface h-40 animate-pulse rounded-3xl" />
           ))}
         </div>
       ) : accounts.length === 0 ? (
-        <div className="glass-surface flex flex-col items-center gap-4 rounded-[2rem] py-16 text-center">
+        <div className="glass-surface flex flex-col items-center gap-4 rounded-3xl py-16 text-center">
           <div className="rounded-3xl bg-brand-soft p-4 text-brand">
             <Landmark className="h-8 w-8" />
           </div>
@@ -101,7 +101,7 @@ export function AccountsSection() {
           </div>
           <button
             onClick={openCreate}
-            className="inline-flex items-center gap-2 rounded-2xl bg-brand px-5 py-2.5 text-sm font-medium text-white"
+            className="inline-flex items-center gap-2 rounded-2xl bg-brand px-5 py-2.5 text-sm font-medium text-primary-foreground"
           >
             <Plus className="h-4 w-4" />
             Adicionar conta
@@ -110,7 +110,7 @@ export function AccountsSection() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {accounts.map((account) => (
-            <div key={account.id} className="glass-surface group relative rounded-[2rem] p-5">
+            <div key={account.id} className="glass-surface group relative rounded-3xl p-5">
               <div className="flex items-start justify-between gap-4">
                 <div
                   className="rounded-2xl p-3"

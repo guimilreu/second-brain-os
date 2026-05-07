@@ -11,7 +11,7 @@ export function AppShell({ children, userName }: AppShellProps) {
   return (
     <div className="soft-grid min-h-screen">
       <Sidebar userName={userName} />
-      <main className="min-h-screen px-4 pb-10 pt-20 md:px-8 lg:ml-80 lg:px-10 lg:pt-8">
+      <main className="min-h-screen px-4 pb-10 pt-20 md:px-8 lg:ml-72 lg:px-10 lg:pt-8">
         <div className="mx-auto max-w-7xl">
           <PageTransition>{children}</PageTransition>
         </div>

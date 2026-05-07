@@ -74,7 +74,7 @@ type ColorSwatchProps = {
 };
 
 const DEFAULT_COLORS = [
-  "#635bff", "#8b7cff", "#22c55e", "#16a34a", "#f59e0b", "#ef4444",
+  "#ffc100", "#e0a800", "#22c55e", "#16a34a", "#f59e0b", "#ef4444",
   "#3b82f6", "#06b6d4", "#ec4899", "#8b5cf6", "#f97316", "#64748b",
 ];
 

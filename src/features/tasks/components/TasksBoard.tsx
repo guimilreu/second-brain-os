@@ -26,6 +26,7 @@ import { ProjectDialog } from "@/features/tasks/components/dialogs/ProjectDialog
 import { SprintDialog } from "@/features/tasks/components/dialogs/SprintDialog";
 import { formatWeekRange } from "@/lib/utils/format";
 import { cn } from "@/lib/utils/cn";
+import { listContainer, listItem, springPage, springSnap } from "@/lib/motion/spring";
 
 type TaskStatus = "todo" | "doing" | "done" | "blocked";
 
@@ -205,9 +206,11 @@ export function TasksBoard({
       {/* Sprint header */}
       <section id="sprint-board" className="scroll-mt-24 grid gap-4 lg:grid-cols-[1fr_20rem]">
         <motion.div
-          initial={{ opacity: 0, y: 14 }}
+          initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          className="glass-surface rounded-[2rem] p-6"
+          transition={springPage}
+          whileHover={{ y: -2 }}
+          className="glass-surface rounded-3xl p-6 transition-shadow duration-300"
         >
           <p className="text-sm text-muted-foreground">
             {formatWeekRange(sprint.startsAt, sprint.endsAt)}
@@ -252,10 +255,11 @@ export function TasksBoard({
         </motion.div>
 
         <motion.div
-          initial={{ opacity: 0, y: 14 }}
+          initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.06 }}
-          className="glass-surface rounded-[2rem] p-6"
+          transition={{ ...springPage, delay: 0.06 }}
+          whileHover={{ y: -2 }}
+          className="glass-surface rounded-3xl p-6 transition-shadow duration-300"
         >
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">Projetos ativos</p>
@@ -273,9 +277,18 @@ export function TasksBoard({
             </Button>
           </div>
           <p className="mt-2 text-4xl font-semibold">{projects.length}</p>
-          <div className="mt-5 space-y-2">
+          <motion.div
+            variants={listContainer}
+            initial="hidden"
+            animate="visible"
+            className="mt-5 space-y-2"
+          >
             {projects.slice(0, 5).map((project) => (
-              <div key={project.id} className="group flex items-center justify-between gap-3">
+              <motion.div
+                key={project.id}
+                variants={listItem}
+                className="group flex items-center justify-between gap-3"
+              >
                 <div className="flex min-w-0 items-center gap-3">
                   <span
                     className="h-3 w-3 shrink-0 rounded-full"
@@ -300,34 +313,34 @@ export function TasksBoard({
                     <Trash2 className="h-3 w-3" />
                   </button>
                 </div>
-              </div>
+              </motion.div>
             ))}
             {!projects.length ? (
               <p className="text-sm text-muted-foreground">Crie projetos para separar suas tarefas.</p>
             ) : null}
-          </div>
+          </motion.div>
         </motion.div>
       </section>
 
       <section className="grid gap-4 md:grid-cols-3">
-        <div className="glass-surface rounded-[2rem] p-5">
+        <div className="glass-surface rounded-3xl p-5">
           <p className="text-sm text-muted-foreground">Concluídas</p>
           <p className="mt-2 text-3xl font-semibold text-success">{doneCount}</p>
           <p className="mt-1 text-xs text-muted-foreground">Fechadas nesta sprint</p>
         </div>
-        <div className="glass-surface rounded-[2rem] p-5">
+        <div className="glass-surface rounded-3xl p-5">
           <p className="text-sm text-muted-foreground">Pendentes</p>
           <p className="mt-2 text-3xl font-semibold text-warning">{pendingCount}</p>
           <p className="mt-1 text-xs text-muted-foreground">Candidatas para hoje ou próxima semana</p>
         </div>
-        <div className="glass-surface rounded-[2rem] p-5">
+        <div className="glass-surface rounded-3xl p-5">
           <p className="text-sm text-muted-foreground">Bloqueadas</p>
           <p className="mt-2 text-3xl font-semibold text-danger">{blockedCount}</p>
           <p className="mt-1 text-xs text-muted-foreground">Precisam de decisão ou contexto</p>
         </div>
       </section>
 
-      <section className="glass-surface rounded-[2rem] p-4">
+      <section className="glass-surface rounded-3xl p-4">
         <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-sm font-medium">Planejamento por dia</p>
@@ -376,7 +389,7 @@ export function TasksBoard({
           const Icon = column.icon;
 
           return (
-            <div key={column.id} className="glass-surface rounded-[2rem] p-4">
+            <div key={column.id} className="glass-surface rounded-3xl p-4">
               <div className="mb-4 flex items-start justify-between gap-3">
                 <div>
                   <div className="flex items-center gap-2">
@@ -399,10 +412,15 @@ export function TasksBoard({
                     <motion.article
                       key={task.id}
                       layout
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.98 }}
-                      className="group rounded-2xl border border-border bg-surface p-4 transition hover:-translate-y-0.5 hover:border-brand hover:shadow-lg dark:bg-default-50/30"
+                      transition={{ layout: springSnap, ...springSnap }}
+                      initial={{ opacity: 0, y: 12, scale: 0.99 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{
+                        opacity: 0,
+                        scale: 0.97,
+                        transition: springSnap,
+                      }}
+                      className="group rounded-2xl border border-border bg-surface p-4 transition-[transform,border-color] duration-300 hover:-translate-y-0.5 hover:border-brand/40 dark:bg-default-50/30"
                     >
                       <div className="flex items-start justify-between gap-2">
                         <button
@@ -495,7 +513,7 @@ export function TasksBoard({
 
       {/* Project distribution */}
       {projects.length > 0 ? (
-        <section className="glass-surface rounded-[2rem] p-6">
+        <section className="glass-surface rounded-3xl p-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="rounded-2xl bg-brand-soft p-3 text-brand">

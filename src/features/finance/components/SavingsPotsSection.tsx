@@ -56,7 +56,7 @@ export function SavingsPotsSection() {
         </div>
         <button
           onClick={() => { setEditing(null); setDialogOpen(true); }}
-          className="inline-flex items-center gap-2 rounded-2xl bg-brand px-4 py-2.5 text-sm font-medium text-white transition hover:opacity-90"
+          className="inline-flex items-center gap-2 rounded-2xl bg-brand px-4 py-2.5 text-sm font-medium text-primary-foreground transition hover:opacity-90"
         >
           <Plus className="h-4 w-4" />
           Novo cofrinho
@@ -66,11 +66,11 @@ export function SavingsPotsSection() {
       {loading ? (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="glass-surface h-40 animate-pulse rounded-[2rem]" />
+            <div key={i} className="glass-surface h-40 animate-pulse rounded-3xl" />
           ))}
         </div>
       ) : pots.length === 0 ? (
-        <div className="glass-surface flex flex-col items-center gap-4 rounded-[2rem] py-16 text-center">
+        <div className="glass-surface flex flex-col items-center gap-4 rounded-3xl py-16 text-center">
           <div className="rounded-3xl bg-brand-soft p-4 text-brand">
             <PiggyBank className="h-8 w-8" />
           </div>
@@ -90,7 +90,7 @@ export function SavingsPotsSection() {
                 : 0;
 
             return (
-              <div key={pot.id} className="glass-surface group relative rounded-[2rem] p-5">
+              <div key={pot.id} className="glass-surface group relative rounded-3xl p-5">
                 <div className="absolute right-4 top-4 flex gap-1 opacity-0 transition group-hover:opacity-100">
                   <button
                     onClick={() => { setEditing(pot); setDialogOpen(true); }}

@@ -1,4 +1,5 @@
 import { PageHeader } from "@/components/ui/PageHeader";
+import { Reveal } from "@/components/motion/Reveal";
 import { WishlistBoard } from "@/features/wishlist/components/WishlistBoard";
 import { getWishlistOverview } from "@/features/wishlist/lib/data";
 import { requireCurrentUser } from "@/lib/auth/current-user";
@@ -18,7 +19,9 @@ export default async function WishlistPage() {
         title="Lista de desejos e compras planejadas"
         description="Organize por mês, sonhos sem data e arquivo. Tetos opcionais, arraste para replanejar e abra o financeiro só quando quiser ao comprar."
       />
-      <WishlistBoard overview={overview} />
+      <Reveal delay={0.03}>
+        <WishlistBoard overview={overview} />
+      </Reveal>
     </div>
   );
 }
