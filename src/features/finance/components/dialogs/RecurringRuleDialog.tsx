@@ -51,6 +51,7 @@ function makeInitial(rule?: RecurringRule | null) {
     return {
       title: rule.title, amount: rule.amount, type: rule.type, category: rule.category,
       cadence: rule.cadence, dayOfWeek: rule.dayOfWeek ?? 5, dayOfMonth: rule.dayOfMonth ?? 10,
+      intervalDays: (rule as { intervalDays?: number }).intervalDays ?? 14,
       startsAt: format(new Date(rule.startsAt), "yyyy-MM-dd"),
       endsAt: rule.endsAt ? format(new Date(rule.endsAt), "yyyy-MM-dd") : "",
       isActive: rule.isActive, allocationPercent: rule.allocationPercent,
@@ -59,7 +60,7 @@ function makeInitial(rule?: RecurringRule | null) {
   }
   return {
     title: "", amount: 0, type: "income", category: "Salário",
-    cadence: "weekly", dayOfWeek: 5, dayOfMonth: 10,
+    cadence: "weekly", dayOfWeek: 5, dayOfMonth: 10, intervalDays: 14,
     startsAt: format(new Date(), "yyyy-MM-dd"), endsAt: "",
     isActive: true, allocationPercent: 0, savingsPotId: "",
   };
@@ -78,15 +79,27 @@ export function RecurringRuleDialog({ open, onClose, rule, pots, onSaved }: Recu
     e.preventDefault();
     setSaving(true);
     try {
-      const payload = {
-        title: form.title, amount: Number(form.amount), type: form.type,
-        category: form.category, cadence: form.cadence,
-        ...(form.cadence === "weekly" ? { dayOfWeek: form.dayOfWeek } : { dayOfMonth: form.dayOfMonth }),
+      const payload: Record<string, unknown> = {
+        title: form.title,
+        amount: Number(form.amount),
+        type: form.type,
+        category: form.category,
+        cadence: form.cadence,
         startsAt: new Date(form.startsAt).toISOString(),
         endsAt: form.endsAt ? new Date(form.endsAt).toISOString() : undefined,
-        isActive: form.isActive, allocationPercent: Number(form.allocationPercent),
+        isActive: form.isActive,
+        allocationPercent: Number(form.allocationPercent),
         savingsPotId: form.savingsPotId || undefined,
       };
+      if (form.cadence === "weekly" || form.cadence === "biweekly") {
+        payload.dayOfWeek = form.dayOfWeek;
+      }
+      if (form.cadence === "monthly" || form.cadence === "yearly") {
+        payload.dayOfMonth = form.dayOfMonth;
+      }
+      if (form.cadence === "custom") {
+        payload.intervalDays = Number(form.intervalDays);
+      }
       if (rule?.id) {
         await axios.patch(`/api/finance/recurring-rules/${rule.id}`, payload);
         toast.success("Regra atualizada.");
@@ -130,21 +143,31 @@ export function RecurringRuleDialog({ open, onClose, rule, pots, onSaved }: Recu
           <FormField label="Frequência">
             <Select value={form.cadence} onChange={(e) => set("cadence", e.target.value)}>
               <option value="weekly">Semanal</option>
+              <option value="biweekly">Quinzenal</option>
               <option value="monthly">Mensal</option>
+              <option value="yearly">Anual</option>
+              <option value="custom">Custom (dias)</option>
             </Select>
           </FormField>
-          {form.cadence === "weekly" ? (
+          {(form.cadence === "weekly" || form.cadence === "biweekly") ? (
             <FormField label="Dia da semana">
               <Select value={form.dayOfWeek} onChange={(e) => set("dayOfWeek", Number(e.target.value))}>
                 {DAYS_OF_WEEK.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
               </Select>
             </FormField>
-          ) : (
+          ) : null}
+          {(form.cadence === "monthly" || form.cadence === "yearly") ? (
             <FormField label="Dia do mês">
               <Input type="number" min={1} max={31} value={form.dayOfMonth}
                 onChange={(e) => set("dayOfMonth", Number(e.target.value))} />
             </FormField>
-          )}
+          ) : null}
+          {form.cadence === "custom" ? (
+            <FormField label="A cada N dias">
+              <Input type="number" min={1} max={365} value={form.intervalDays}
+                onChange={(e) => set("intervalDays", Number(e.target.value))} />
+            </FormField>
+          ) : null}
           <FormField label="Início">
             <Input type="date" required value={form.startsAt}
               onChange={(e) => set("startsAt", e.target.value)} />

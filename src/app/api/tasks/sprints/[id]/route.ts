@@ -21,7 +21,7 @@ export async function PATCH(
     const sprint = await WeeklySprint.findOneAndUpdate(
       { _id: id, userId: user.userId },
       { $set: safe },
-      { new: true },
+      { returnDocument: "after" },
     );
 
     if (!sprint) return fail("Sprint não encontrada.", 404);

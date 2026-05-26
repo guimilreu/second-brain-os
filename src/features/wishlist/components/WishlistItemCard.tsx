@@ -49,7 +49,7 @@ export function WishlistItemCard({
       type="button"
       onClick={onEdit}
       className={cn(
-        "group flex w-full cursor-pointer flex-col gap-2 rounded-2xl border border-border bg-surface p-3 text-left shadow-sm transition hover:border-brand/40 hover:shadow-md dark:bg-default-50/40",
+        "group flex w-full cursor-pointer flex-col gap-2 rounded-2xl border border-border bg-transparent p-3 text-left transition-colors duration-200 hover:bg-card/75 dark:bg-default-50/30",
         isDragging && "opacity-60 ring-2 ring-brand/30",
       )}
     >

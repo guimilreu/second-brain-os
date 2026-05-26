@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, startTransition } from "react";
 import axios from "axios";
 import { toast } from "sonner";
 import { CalendarClock, Pencil, Plus, Trash2 } from "lucide-react";
 import { RecurringRuleDialog } from "@/features/finance/components/dialogs/RecurringRuleDialog";
+import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/utils/format";
 import { cn } from "@/lib/utils/cn";
 
@@ -30,6 +31,21 @@ const DAYS: Record<number, string> = {
   0: "Dom", 1: "Seg", 2: "Ter", 3: "Qua", 4: "Qui", 5: "Sex", 6: "Sáb",
 };
 
+function cadenceLabel(rule: RecurringRule) {
+  if (rule.cadence === "weekly") return `Toda ${DAYS[rule.dayOfWeek ?? 0]}`;
+  if (rule.cadence === "biweekly") return `Quinzenal (${DAYS[rule.dayOfWeek ?? 0]})`;
+  if (rule.cadence === "yearly") return `Anual · dia ${rule.dayOfMonth ?? 1}`;
+  if (rule.cadence === "custom") return "Intervalo customizado";
+  return `Todo dia ${rule.dayOfMonth ?? 1}`;
+}
+
+function monthlyEstimate(rule: RecurringRule) {
+  if (rule.cadence === "weekly") return rule.amount * 4.33;
+  if (rule.cadence === "biweekly") return rule.amount * 2.17;
+  if (rule.cadence === "yearly") return rule.amount / 12;
+  return rule.amount;
+}
+
 export function RecurringSection() {
   const [rules, setRules] = useState<RecurringRule[]>([]);
   const [pots, setPots] = useState<SavingsPot[]>([]);
@@ -38,17 +54,25 @@ export function RecurringSection() {
   const [editing, setEditing] = useState<RecurringRule | null>(null);
 
   const fetchAll = useCallback(async () => {
-    const [rulesRes, potsRes] = await Promise.all([
-      axios.get<{ data: RecurringRule[] }>("/api/finance/recurring-rules"),
-      axios.get<{ data: SavingsPot[] }>("/api/finance/savings-pots"),
-    ]);
-    setRules(rulesRes.data.data);
-    setPots(potsRes.data.data);
-    setLoading(false);
+    try {
+      const [rulesRes, potsRes] = await Promise.all([
+        axios.get<{ data: RecurringRule[] }>("/api/finance/recurring-rules"),
+        axios.get<{ data: SavingsPot[] }>("/api/finance/savings-pots"),
+      ]);
+      setRules(rulesRes.data.data);
+      setPots(potsRes.data.data);
+    } catch {
+      toast.error("Não foi possível carregar recorrências.");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { void fetchAll(); }, [fetchAll]);
+  useEffect(() => {
+    startTransition(() => {
+      void fetchAll();
+    });
+  }, [fetchAll]);
 
   async function handleDelete(id: string) {
     if (!confirm("Remover esta recorrência?")) return;
@@ -76,10 +100,10 @@ export function RecurringSection() {
   const expenseRules = rules.filter((r) => r.type === "expense");
   const monthlyIncome = incomeRules
     .filter((r) => r.isActive)
-    .reduce((s, r) => s + (r.cadence === "weekly" ? r.amount * 4.33 : r.amount), 0);
+    .reduce((s, r) => s + monthlyEstimate(r), 0);
   const monthlyExpense = expenseRules
     .filter((r) => r.isActive)
-    .reduce((s, r) => s + (r.cadence === "weekly" ? r.amount * 4.33 : r.amount), 0);
+    .reduce((s, r) => s + monthlyEstimate(r), 0);
 
   return (
     <div className="space-y-6">
@@ -93,23 +117,23 @@ export function RecurringSection() {
             <span className="text-danger font-medium">−{formatCurrency(monthlyExpense)}</span>
           </p>
         </div>
-        <button
+        <Button
           onClick={() => { setEditing(null); setDialogOpen(true); }}
-          className="inline-flex items-center gap-2 rounded-2xl bg-brand px-4 py-2.5 text-sm font-medium text-primary-foreground transition hover:opacity-90"
+          className="rounded-2xl"
         >
           <Plus className="h-4 w-4" />
           Nova recorrência
-        </button>
+        </Button>
       </div>
 
       {loading ? (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="glass-surface h-16 animate-pulse rounded-2xl" />
+            <div key={i} className="h-16 animate-pulse rounded-2xl border border-border bg-card" />
           ))}
         </div>
       ) : rules.length === 0 ? (
-        <div className="glass-surface flex flex-col items-center gap-4 rounded-3xl py-16 text-center">
+        <div className="flex flex-col items-center gap-4 rounded-3xl border border-dashed border-border bg-card py-16 text-center shadow-paper-sm">
           <div className="rounded-3xl bg-brand-soft p-4 text-brand">
             <CalendarClock className="h-8 w-8" />
           </div>
@@ -131,12 +155,12 @@ export function RecurringSection() {
                 <p className="mb-3 text-sm font-semibold uppercase tracking-widest text-muted-foreground">
                   {label}
                 </p>
-                <div className="glass-surface overflow-hidden rounded-3xl">
+                <div className="overflow-hidden rounded-3xl border border-border bg-card shadow-paper-sm">
                   {items.map((rule, i) => (
                     <div
                       key={rule.id}
                       className={cn(
-                        "group flex items-center gap-4 px-5 py-4 transition hover:bg-surface-soft",
+                        "group flex flex-wrap items-center gap-4 px-5 py-4 transition hover:bg-surface-soft sm:flex-nowrap",
                         i > 0 && "border-t border-border",
                         !rule.isActive && "opacity-50",
                       )}
@@ -144,10 +168,7 @@ export function RecurringSection() {
                       <div className="min-w-0 flex-1">
                         <p className="font-medium">{rule.title}</p>
                         <p className="text-sm text-muted-foreground">
-                          {rule.cadence === "weekly"
-                            ? `Toda ${DAYS[rule.dayOfWeek ?? 0]}`
-                            : `Todo dia ${rule.dayOfMonth}`}{" "}
-                          · {rule.category}
+                          {cadenceLabel(rule)} · {rule.category}
                           {rule.allocationPercent > 0
                             ? ` · ${rule.allocationPercent}% para cofrinho`
                             : ""}
@@ -163,29 +184,38 @@ export function RecurringSection() {
                         {formatCurrency(rule.amount)}
                       </p>
                       <div className="flex items-center gap-1">
-                        <button
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={rule.isActive ? "secondary" : "outline"}
                           onClick={() => toggleActive(rule)}
                           className={cn(
-                            "rounded-full px-3 py-1 text-xs font-medium transition",
-                            rule.isActive
-                              ? "bg-emerald-500/10 text-success hover:bg-emerald-500/20"
-                              : "bg-surface-soft text-muted-foreground hover:text-foreground",
+                            "rounded-full text-xs",
+                            rule.isActive && "text-success hover:text-success",
                           )}
                         >
                           {rule.isActive ? "Ativa" : "Inativa"}
-                        </button>
-                        <button
+                        </Button>
+                        <Button
+                          type="button"
+                          size="icon-sm"
+                          variant="outline"
                           onClick={() => { setEditing(rule); setDialogOpen(true); }}
-                          className="rounded-xl bg-surface-soft p-2 text-muted-foreground opacity-0 transition hover:text-foreground group-hover:opacity-100"
+                          className="rounded-xl"
+                          aria-label="Editar recorrência"
                         >
                           <Pencil className="h-3.5 w-3.5" />
-                        </button>
-                        <button
+                        </Button>
+                        <Button
+                          type="button"
+                          size="icon-sm"
+                          variant="outline"
                           onClick={() => handleDelete(rule.id)}
-                          className="rounded-xl bg-surface-soft p-2 text-muted-foreground opacity-0 transition hover:text-danger group-hover:opacity-100"
+                          className="rounded-xl hover:text-danger"
+                          aria-label="Remover recorrência"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
-                        </button>
+                        </Button>
                       </div>
                     </div>
                   ))}

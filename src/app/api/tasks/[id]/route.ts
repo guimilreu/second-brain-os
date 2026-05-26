@@ -25,7 +25,7 @@ export async function PATCH(
     const task = await Task.findOneAndUpdate(
       { _id: id, userId: user.userId },
       { $set: safe },
-      { new: true },
+      { returnDocument: "after" },
     );
 
     if (!task) return fail("Tarefa não encontrada.", 404);

@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, startTransition } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import axios from "axios";
 import { toast } from "sonner";
 import { Pencil, Plus, Target, Trash2 } from "lucide-react";
 import { GoalDialog } from "@/features/finance/components/dialogs/GoalDialog";
+import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/utils/format";
 import { cn } from "@/lib/utils/cn";
 
@@ -39,13 +40,21 @@ export function GoalsSection() {
   const [editing, setEditing] = useState<Goal | null>(null);
 
   const fetch = useCallback(async () => {
-    const res = await axios.get<{ data: Goal[] }>("/api/finance/goals");
-    setGoals(res.data.data);
-    setLoading(false);
+    try {
+      const res = await axios.get<{ data: Goal[] }>("/api/finance/goals");
+      setGoals(res.data.data);
+    } catch {
+      toast.error("Não foi possível carregar metas.");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { void fetch(); }, [fetch]);
+  useEffect(() => {
+    startTransition(() => {
+      void fetch();
+    });
+  }, [fetch]);
 
   async function handleDelete(id: string) {
     if (!confirm("Remover esta meta?")) return;
@@ -65,23 +74,23 @@ export function GoalsSection() {
           <h2 className="text-2xl font-semibold">Metas financeiras</h2>
           <p className="mt-1 text-sm text-muted-foreground">{goals.length} meta{goals.length !== 1 ? "s" : ""} cadastrada{goals.length !== 1 ? "s" : ""}</p>
         </div>
-        <button
+        <Button
           onClick={() => { setEditing(null); setDialogOpen(true); }}
-          className="inline-flex items-center gap-2 rounded-2xl bg-brand px-4 py-2.5 text-sm font-medium text-primary-foreground transition hover:opacity-90"
+          className="rounded-2xl"
         >
           <Plus className="h-4 w-4" />
           Nova meta
-        </button>
+        </Button>
       </div>
 
       {loading ? (
         <div className="grid gap-4 md:grid-cols-2">
           {[1, 2].map((i) => (
-            <div key={i} className="glass-surface h-44 animate-pulse rounded-3xl" />
+            <div key={i} className="h-44 animate-pulse rounded-3xl border border-border bg-card" />
           ))}
         </div>
       ) : goals.length === 0 ? (
-        <div className="glass-surface flex flex-col items-center gap-4 rounded-3xl py-16 text-center">
+        <div className="flex flex-col items-center gap-4 rounded-3xl border border-dashed border-border bg-card py-16 text-center shadow-paper-sm">
           <div className="rounded-3xl bg-brand-soft p-4 text-brand">
             <Target className="h-8 w-8" />
           </div>
@@ -101,20 +110,28 @@ export function GoalsSection() {
                 : 0;
 
             return (
-              <div key={goal.id} className="glass-surface group relative rounded-3xl p-6">
-                <div className="absolute right-4 top-4 flex gap-1 opacity-0 transition group-hover:opacity-100">
-                  <button
+              <div key={goal.id} className="paper-note interactive-card group relative rounded-3xl p-6">
+                <div className="absolute right-4 top-4 flex gap-1">
+                  <Button
+                    type="button"
+                    size="icon-sm"
+                    variant="outline"
                     onClick={() => { setEditing(goal); setDialogOpen(true); }}
-                    className="rounded-xl bg-surface-soft p-2 text-muted-foreground transition hover:text-foreground"
+                    className="rounded-xl"
+                    aria-label="Editar meta"
                   >
                     <Pencil className="h-3.5 w-3.5" />
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    type="button"
+                    size="icon-sm"
+                    variant="outline"
                     onClick={() => handleDelete(goal.id)}
-                    className="rounded-xl bg-surface-soft p-2 text-muted-foreground transition hover:text-danger"
+                    className="rounded-xl hover:text-danger"
+                    aria-label="Remover meta"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+                  </Button>
                 </div>
                 <div className="flex items-start gap-4">
                   <div className="rounded-2xl bg-brand-soft p-3 text-brand">

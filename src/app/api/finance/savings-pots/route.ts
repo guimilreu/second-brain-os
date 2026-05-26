@@ -1,7 +1,11 @@
 import { requireCurrentUser } from "@/lib/auth/current-user";
 import { connectToDatabase } from "@/lib/db/mongodb";
-import { created, handleApiError, ok } from "@/lib/http/api-response";
+import { created, fail, handleApiError, ok } from "@/lib/http/api-response";
 import { serializeDocument, serializeDocuments } from "@/lib/utils/serialize";
+import {
+  PotAllocationError,
+  refreshAccountAfterPotChange,
+} from "@/features/finance/lib/pots-validation";
 import { savingsPotSchema } from "@/features/finance/lib/schemas";
 import { SavingsPot } from "@/models/SavingsPot";
 
@@ -25,9 +29,13 @@ export async function POST(request: Request) {
 
     const payload = savingsPotSchema.parse(await request.json());
     const pot = await SavingsPot.create({ ...payload, userId: user.userId });
+    await refreshAccountAfterPotChange(user.userId, payload.bankAccountId);
 
     return created(serializeDocument(pot));
   } catch (error) {
+    if (error instanceof PotAllocationError) {
+      return fail(error.message, 422);
+    }
     return handleApiError(error);
   }
 }

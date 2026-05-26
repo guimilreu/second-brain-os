@@ -1,9 +1,16 @@
 import { type NextRequest } from "next/server";
 import { requireCurrentUser } from "@/lib/auth/current-user";
 import { connectToDatabase } from "@/lib/db/mongodb";
-import { applyAccountImpact } from "@/features/finance/lib/accounting";
+import {
+  assertCreditAccount,
+  ensureInvoiceForDate,
+  recalculateInvoiceTotal,
+} from "@/features/finance/lib/creditCard";
+import { recalculateAccountBalancesTouching } from "@/features/finance/lib/ledger";
+import { transactionPatchSchema } from "@/features/finance/lib/schemas";
 import { fail, handleApiError, ok } from "@/lib/http/api-response";
 import { serializeDocument } from "@/lib/utils/serialize";
+import { BankAccount } from "@/models/BankAccount";
 import { Transaction } from "@/models/Transaction";
 
 export async function PATCH(
@@ -15,23 +22,78 @@ export async function PATCH(
     const { id } = await params;
     await connectToDatabase();
 
-    const body = await request.json();
-    const { _id, userId, ...safe } = body as Record<string, unknown>;
-    void _id; void userId;
-
+    const patch = transactionPatchSchema.parse(await request.json());
     const existing = await Transaction.findOne({ _id: id, userId: user.userId });
     if (!existing) return fail("Transação não encontrada.", 404);
 
-    await applyAccountImpact(user.userId, existing, -1);
+    const oldInvoice = existing.creditCardInvoiceId
+      ? String(existing.creditCardInvoiceId)
+      : null;
+    const prevAccount = existing.bankAccountId ? String(existing.bankAccountId) : null;
+
+    const merged = {
+      ...existing.toObject(),
+      ...patch,
+      occurredAt: patch.occurredAt ?? existing.occurredAt,
+    };
+
+    let updates: Record<string, unknown> = patch;
+
+    const bankAccountId = (patch.bankAccountId ?? existing.bankAccountId)?.toString();
+    if (bankAccountId && merged.type === "expense") {
+      const acc = await BankAccount.findOne({
+        _id: bankAccountId,
+        userId: user.userId,
+        isArchived: false,
+      });
+      if (acc?.type === "credit") {
+        const creditAcc = await assertCreditAccount(user.userId, bankAccountId);
+        const invoice = await ensureInvoiceForDate(
+          user.userId,
+          bankAccountId,
+          {
+            closingDay: creditAcc.closingDay ?? undefined,
+            dueDay: creditAcc.dueDay ?? undefined,
+          },
+          merged.occurredAt as Date,
+        );
+        updates = {
+          ...updates,
+          paymentMethod: "credit",
+          includeInAccountBalance: false,
+          creditCardInvoiceId: invoice._id,
+        };
+      } else if (acc && merged.type === "expense") {
+        updates = {
+          ...updates,
+          includeInAccountBalance: true,
+          creditCardInvoiceId: null,
+        };
+      }
+    }
 
     const transaction = await Transaction.findOneAndUpdate(
       { _id: id, userId: user.userId },
-      { $set: safe },
-      { new: true },
+      { $set: updates },
+      { returnDocument: "after" },
     );
 
     if (!transaction) return fail("Transação não encontrada.", 404);
-    await applyAccountImpact(user.userId, transaction);
+
+    for (const invId of new Set(
+      [oldInvoice, transaction.creditCardInvoiceId ? String(transaction.creditCardInvoiceId) : null].filter(
+        Boolean,
+      ) as string[],
+    )) {
+      await recalculateInvoiceTotal(invId);
+    }
+
+    await recalculateAccountBalancesTouching(
+      user.userId,
+      transaction.bankAccountId ? String(transaction.bankAccountId) : null,
+      prevAccount,
+    );
+
     return ok(serializeDocument(transaction));
   } catch (error) {
     return handleApiError(error);
@@ -49,8 +111,14 @@ export async function DELETE(
 
     const transaction = await Transaction.findOneAndDelete({ _id: id, userId: user.userId });
 
-    if (transaction) {
-      await applyAccountImpact(user.userId, transaction, -1);
+    if (transaction?.creditCardInvoiceId) {
+      await recalculateInvoiceTotal(String(transaction.creditCardInvoiceId));
+    }
+    if (transaction?.bankAccountId) {
+      await recalculateAccountBalancesTouching(
+        user.userId,
+        String(transaction.bankAccountId),
+      );
     }
 
     return ok({ success: true });

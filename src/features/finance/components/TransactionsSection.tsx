@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, startTransition } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import axios from "axios";
 import { toast } from "sonner";
 import { ArrowDownLeft, ArrowUpRight, Pencil, Plus, Receipt, Trash2 } from "lucide-react";
 import { TransactionDialog } from "@/features/finance/components/dialogs/TransactionDialog";
+import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/utils/format";
 import { cn } from "@/lib/utils/cn";
 
@@ -47,17 +48,25 @@ export function TransactionsSection() {
   const [editing, setEditing] = useState<Transaction | null>(null);
 
   const fetchAll = useCallback(async () => {
-    const [txRes, acRes] = await Promise.all([
-      axios.get<{ data: Transaction[] }>("/api/finance/transactions"),
-      axios.get<{ data: Account[] }>("/api/finance/accounts"),
-    ]);
-    setTransactions(txRes.data.data);
-    setAccounts(acRes.data.data);
-    setLoading(false);
+    try {
+      const [txRes, acRes] = await Promise.all([
+        axios.get<{ data: Transaction[] }>("/api/finance/transactions"),
+        axios.get<{ data: Account[] }>("/api/finance/accounts"),
+      ]);
+      setTransactions(txRes.data.data);
+      setAccounts(acRes.data.data);
+    } catch {
+      toast.error("Não foi possível carregar transações.");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { void fetchAll(); }, [fetchAll]);
+  useEffect(() => {
+    startTransition(() => {
+      void fetchAll();
+    });
+  }, [fetchAll]);
 
   async function handleDelete(id: string) {
     if (!confirm("Remover esta transação?")) return;
@@ -102,36 +111,39 @@ export function TransactionsSection() {
         <div className="flex items-center gap-3">
           <div className="flex rounded-2xl border border-border bg-surface-soft p-1 text-sm">
             {(["all", "income", "expense"] as const).map((f) => (
-              <button
+              <Button
                 key={f}
+                type="button"
+                size="sm"
+                variant={typeFilter === f ? "default" : "ghost"}
                 onClick={() => setTypeFilter(f)}
                 className={cn(
-                  "rounded-xl px-3 py-1.5 font-medium transition",
-                  typeFilter === f ? "bg-brand text-primary-foreground" : "text-muted-foreground hover:text-foreground",
+                  "rounded-xl",
+                  typeFilter !== f && "text-muted-foreground",
                 )}
               >
                 {f === "all" ? "Todos" : f === "income" ? "Entradas" : "Saídas"}
-              </button>
+              </Button>
             ))}
           </div>
-          <button
+          <Button
             onClick={openCreate}
-            className="inline-flex items-center gap-2 rounded-2xl bg-brand px-4 py-2.5 text-sm font-medium text-primary-foreground transition hover:opacity-90"
+            className="rounded-2xl"
           >
             <Plus className="h-4 w-4" />
             Nova
-          </button>
+          </Button>
         </div>
       </div>
 
       {loading ? (
         <div className="space-y-3">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="glass-surface h-16 animate-pulse rounded-2xl" />
+            <div key={i} className="h-16 animate-pulse rounded-2xl border border-border bg-card" />
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="glass-surface flex flex-col items-center gap-4 rounded-3xl py-16 text-center">
+        <div className="flex flex-col items-center gap-4 rounded-3xl border border-dashed border-border bg-card py-16 text-center shadow-paper-sm">
           <div className="rounded-3xl bg-brand-soft p-4 text-brand">
             <Receipt className="h-8 w-8" />
           </div>
@@ -139,21 +151,21 @@ export function TransactionsSection() {
             <p className="font-semibold">Nenhuma transação</p>
             <p className="mt-1 text-sm text-muted-foreground">Registre entradas e saídas para acompanhar seu dinheiro.</p>
           </div>
-          <button
+          <Button
             onClick={openCreate}
-            className="inline-flex items-center gap-2 rounded-2xl bg-brand px-5 py-2.5 text-sm font-medium text-primary-foreground"
+            className="rounded-2xl"
           >
             <Plus className="h-4 w-4" />
             Registrar transação
-          </button>
+          </Button>
         </div>
       ) : (
-        <div className="glass-surface overflow-hidden rounded-3xl">
+        <div className="overflow-hidden rounded-3xl border border-border bg-card shadow-paper-sm">
           {filtered.map((t, i) => (
             <div
               key={t.id}
               className={cn(
-                "group flex items-center gap-4 px-5 py-4 transition hover:bg-surface-soft",
+                "group flex flex-wrap items-center gap-4 px-5 py-4 transition-colors duration-200 hover:bg-surface-soft sm:flex-nowrap",
                 i > 0 && "border-t border-border",
               )}
             >
@@ -193,19 +205,27 @@ export function TransactionsSection() {
                 {t.type === "income" ? "+" : "−"}
                 {formatCurrency(t.amount)}
               </p>
-              <div className="flex gap-1 opacity-0 transition group-hover:opacity-100">
-                <button
+              <div className="flex gap-1">
+                <Button
+                  type="button"
+                  size="icon-sm"
+                  variant="outline"
                   onClick={() => openEdit(t)}
-                  className="rounded-xl bg-surface-soft p-2 text-muted-foreground transition hover:text-foreground"
+                  className="rounded-xl"
+                  aria-label="Editar transação"
                 >
                   <Pencil className="h-3.5 w-3.5" />
-                </button>
-                <button
+                </Button>
+                <Button
+                  type="button"
+                  size="icon-sm"
+                  variant="outline"
                   onClick={() => handleDelete(t.id)}
-                  className="rounded-xl bg-surface-soft p-2 text-muted-foreground transition hover:text-danger"
+                  className="rounded-xl hover:text-danger"
+                  aria-label="Remover transação"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
-                </button>
+                </Button>
               </div>
             </div>
           ))}

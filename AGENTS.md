@@ -35,12 +35,23 @@ Projeto pessoal hospedável em `os.gmdev.pro`. A ideia é ser um sistema operaci
 
 ## Domínios Implementados
 
-Financeiro:
-- Contas/bancos, transações, recorrências, cofrinhos e metas.
-- Previsão mensal com entradas, saídas, valor livre para gastar e alocação para cofrinhos.
-- Gráficos de fluxo previsto e gastos por categoria.
+### Financeiro (ledger derivado)
 
-Tarefas:
+Princípio: **saldos são derivados** do histórico de transações confirmadas (`openingBalance` + movimentos), com **cache** em `BankAccount.balance` / `availableBalance` e recálculo via `recalculateAccountBalance`. Cofrinhos são **sub-saldo** obrigatoriamente ligados a uma conta (`SavingsPot.bankAccountId`).
+
+- **Contas** (`BankAccount`): tipos incl. crédito, empréstimo (`loan`), investimento; cartão com `closingDay` / `dueDay`; `safeMinimum`, `includeInNetWorth`, `currency`.
+- **Transferências atômicas** (`Transfer` + 2× `Transaction` com mesmo `transferId`): conta↔conta, conta↔cofrinho, cofrinho↔cofrinho, pagamento de fatura, aportes/resgates de investimento.
+- **Cartão**: faturas (`CreditCardInvoice`), compras com `creditCardInvoiceId`; pagamento `POST /api/finance/credit-cards/[accountId]/invoices/[invoiceId]/pay` (corpo: `fromAccountId`, `amount`).
+- **Parcelamentos** (`InstallmentPlan`), **orçamentos envelope** (`CategoryBudget`, `getBudgetUsage`), **categorias** (`Category` + seed).
+- **Importação**: `POST /api/finance/imports` (multipart: `file`, `bankAccountId`, `format`: `ofx` \| `csv-generic` \| `csv-nubank` \| `csv-mercadopago`); dedup por `externalId`.
+- **Investimentos** (`Investment`, `InvestmentMovement`), **dívidas** (`Debt`), **cenários** (`ScenarioPlan`, `simulateScenario`), **alertas** (`FinanceAlert`, `buildFinanceAlerts`), **net worth** (`NetWorthSnapshot`, série em `getNetWorthSeries`).
+- **Multi-moeda (opcional)**: campo `currency` em contas; modelo `ExchangeRate`; conversão plena é evolutiva.
+
+**Lib principal**: `src/features/finance/lib/` — `ledger`, `transfers`, `creditCard`, `budgets`, `scenarios`, `netWorth`, `alerts`, `investments`, `forecast`, importers em `importers/`.
+
+**APIs**: `src/app/api/finance/*` — contas, transações, cofrinhos, recorrências, metas, `transfers`, `categories`, `credit-cards/...`, `installments`, `budgets`, `scenarios`, `investments`, `debts`, `imports`, `alerts/[id]/ack`, `exchange-rate`.
+
+### Tarefas
 - Projetos, sprint semanal e tarefas.
 - Sprint atual criada automaticamente quando não existe.
 - Board por status e visão de distribuição por projeto.
@@ -67,10 +78,10 @@ O primeiro usuário é criado automaticamente no login quando `BOOTSTRAP_EMAIL` 
 
 ## Próximos Passos Naturais
 
-- Formulários completos para criar/editar entidades no próprio app.
-- Importação CSV/OFX para financeiro.
-- Calendário, notas, hábitos, health tracking e CRM pessoal.
-- Regras de alocação mais avançadas para cofrinhos.
+- Formulários mais ricos (edição inline, anexos).
+- Preview de importação com merge manual linha a linha.
+- Importadores dedicados por banco (colunas garantidas) e OFX com mais bancos.
+- Hábitos, health tracking e CRM pessoal.
 <!-- BEGIN:nextjs-agent-rules -->
 # This is NOT the Next.js you know
 

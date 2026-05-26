@@ -21,7 +21,7 @@ export async function PATCH(
     const project = await Project.findOneAndUpdate(
       { _id: id, userId: user.userId },
       { $set: safe },
-      { new: true },
+      { returnDocument: "after" },
     );
 
     if (!project) return fail("Projeto não encontrado.", 404);

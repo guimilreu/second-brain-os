@@ -34,17 +34,12 @@ export function SectionCard({
       transition={springUI}
       whileHover={{ y: -2 }}
     >
-      <Card
-        className={cn(
-          "rounded-3xl border border-border/80 bg-card shadow-paper-sm",
-          className,
-        )}
-      >
+      <Card className={cn("paper-note rounded-[1.75rem] bg-card", className)}>
         {(title || eyebrow || action) && (
-          <CardHeader className="flex items-start justify-between gap-4 px-5 pt-5 pb-0">
+          <CardHeader className="flex flex-col gap-4 px-5 pt-5 pb-0 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex min-w-0 items-start gap-3">
               {Icon ? (
-                <div className="rounded-2xl border border-border bg-surface-soft p-2.5 text-foreground">
+                <div className="rounded-2xl border border-border bg-surface-soft/80 p-2.5 text-foreground">
                   <Icon className="h-5 w-5" />
                 </div>
               ) : null}
@@ -55,7 +50,7 @@ export function SectionCard({
                   </p>
                 ) : null}
                 {title ? (
-                  <h2 className="font-heading mt-1.5 text-lg font-semibold tracking-tight text-foreground">
+                  <h2 className="font-heading mt-1.5 text-xl font-bold tracking-[-0.03em] text-paper-ink">
                     {title}
                   </h2>
                 ) : null}
@@ -64,7 +59,7 @@ export function SectionCard({
                 ) : null}
               </div>
             </div>
-            {action ? <div className="shrink-0">{action}</div> : null}
+            {action ? <div className="shrink-0 self-start">{action}</div> : null}
           </CardHeader>
         )}
         <CardContent className={cn("px-5 pb-5 pt-5", bodyClassName)}>{children}</CardContent>

@@ -27,7 +27,19 @@ export async function POST(request: Request) {
     await connectToDatabase();
 
     const payload = bankAccountSchema.parse(await request.json());
-    const account = await BankAccount.create({ ...payload, userId: user.userId });
+    const {
+      balance,
+      openingBalance: obRaw,
+      ...rest
+    } = payload;
+    const opening = obRaw ?? balance;
+    const account = await BankAccount.create({
+      ...rest,
+      userId: user.userId,
+      openingBalance: opening,
+      balance: opening,
+      availableBalance: opening,
+    });
 
     return created(serializeDocument(account));
   } catch (error) {

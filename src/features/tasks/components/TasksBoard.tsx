@@ -10,8 +10,6 @@ import { useRouter } from "next/navigation";
 import {
   CheckCircle2,
   Circle,
-  CircleDashed,
-  Clock3,
   FilePenLine,
   FolderKanban,
   Pencil,
@@ -63,19 +61,6 @@ type TasksBoardProps = {
   tasks: Record<string, unknown>[];
 };
 
-const STATUS_COLUMNS: {
-  id: TaskStatus;
-  label: string;
-  description: string;
-  icon: typeof Circle;
-  color: string;
-}[] = [
-  { id: "todo", label: "A fazer", description: "Tudo que entrou na semana", icon: Circle, color: "text-muted-foreground" },
-  { id: "doing", label: "Em execução", description: "Foco ativo agora", icon: Clock3, color: "text-blue-500" },
-  { id: "blocked", label: "Bloqueadas", description: "Precisa destravar", icon: CircleDashed, color: "text-warning" },
-  { id: "done", label: "Concluídas", description: "Fechadas com check", icon: CheckCircle2, color: "text-success" },
-];
-
 const PRIORITY_LABELS: Record<string, string> = {
   low: "Baixa",
   medium: "Média",
@@ -95,6 +80,13 @@ const STATUS_CYCLE: Record<TaskStatus, TaskStatus> = {
   doing: "done",
   done: "todo",
   blocked: "doing",
+};
+
+const STATUS_LABELS: Record<TaskStatus, string> = {
+  todo: "A fazer",
+  doing: "Em execução",
+  blocked: "Bloqueada",
+  done: "Concluída",
 };
 
 function getProjectId(task: Task): string {
@@ -166,6 +158,19 @@ export function TasksBoard({
     }
   }
 
+  async function handleToggleDone(task: Task) {
+    const nextStatus = task.status === "done" ? "todo" : "done";
+    try {
+      await axios.patch(`/api/tasks/${task.id}`, { status: nextStatus });
+      setTasks((prev) =>
+        prev.map((t) => (t.id === task.id ? { ...t, status: nextStatus } : t)),
+      );
+      if (nextStatus === "done") toast.success(`"${task.title}" concluída! ✓`);
+    } catch {
+      toast.error("Erro ao atualizar status.");
+    }
+  }
+
   async function handleDeleteTask(id: string) {
     if (!confirm("Remover esta tarefa?")) return;
     try {
@@ -204,20 +209,20 @@ export function TasksBoard({
   return (
     <div className="space-y-6">
       {/* Sprint header */}
-      <section id="sprint-board" className="scroll-mt-24 grid gap-4 lg:grid-cols-[1fr_20rem]">
+      <section id="sprint-board" className="scroll-mt-24 grid gap-5 lg:grid-cols-[1fr_18rem]">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={springPage}
           whileHover={{ y: -2 }}
-          className="glass-surface rounded-3xl p-6 transition-shadow duration-300"
+          className="paper-sheet rounded-[2.25rem] p-6 transition-shadow duration-300 md:p-8"
         >
           <p className="text-sm text-muted-foreground">
             {formatWeekRange(sprint.startsAt, sprint.endsAt)}
           </p>
           <div className="mt-3 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
-              <h2 className="text-3xl font-semibold">{sprint.title}</h2>
+              <h2 className="font-heading text-4xl font-bold tracking-[-0.04em] text-paper-ink">{sprint.title}</h2>
               {sprint.intention ? (
                 <p className="mt-2 max-w-2xl text-muted-foreground">{sprint.intention}</p>
               ) : null}
@@ -226,7 +231,7 @@ export function TasksBoard({
               <Button
                 variant="outline"
                 onClick={() => setSprintDialogOpen(true)}
-                className="rounded-xl"
+                className="rounded-2xl"
               >
                 <FilePenLine className="h-4 w-4" />
                 Editar sprint
@@ -236,7 +241,7 @@ export function TasksBoard({
                   setEditingTask(null);
                   setTaskDialogOpen(true);
                 }}
-                className="rounded-xl"
+                className="rounded-2xl"
               >
                 <Plus className="h-4 w-4" />
                 Nova tarefa
@@ -259,7 +264,7 @@ export function TasksBoard({
           animate={{ opacity: 1, y: 0 }}
           transition={{ ...springPage, delay: 0.06 }}
           whileHover={{ y: -2 }}
-          className="glass-surface rounded-3xl p-6 transition-shadow duration-300"
+          className="paper-note rounded-[1.75rem] p-6 transition-shadow duration-300"
         >
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">Projetos ativos</p>
@@ -296,22 +301,30 @@ export function TasksBoard({
                   />
                   <span className="truncate text-sm">{project.name}</span>
                 </div>
-                <div className="flex gap-1 opacity-0 transition group-hover:opacity-100">
-                  <button
+                <div className="flex gap-1">
+                  <Button
+                    type="button"
+                    size="icon-xs"
+                    variant="ghost"
                     onClick={() => {
                       setEditingProject(project);
                       setProjectDialogOpen(true);
                     }}
-                    className="rounded-lg p-1 text-muted-foreground hover:text-foreground"
+                    className="rounded-lg"
+                    aria-label="Editar projeto"
                   >
                     <Pencil className="h-3 w-3" />
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    type="button"
+                    size="icon-xs"
+                    variant="ghost"
                     onClick={() => handleDeleteProject(project.id)}
-                    className="rounded-lg p-1 text-muted-foreground hover:text-danger"
+                    className="rounded-lg hover:text-danger"
+                    aria-label="Arquivar projeto"
                   >
                     <Trash2 className="h-3 w-3" />
-                  </button>
+                  </Button>
                 </div>
               </motion.div>
             ))}
@@ -323,24 +336,24 @@ export function TasksBoard({
       </section>
 
       <section className="grid gap-4 md:grid-cols-3">
-        <div className="glass-surface rounded-3xl p-5">
+        <div className="paper-note rounded-[1.65rem] p-5">
           <p className="text-sm text-muted-foreground">Concluídas</p>
           <p className="mt-2 text-3xl font-semibold text-success">{doneCount}</p>
           <p className="mt-1 text-xs text-muted-foreground">Fechadas nesta sprint</p>
         </div>
-        <div className="glass-surface rounded-3xl p-5">
+        <div className="paper-note rounded-[1.65rem] p-5">
           <p className="text-sm text-muted-foreground">Pendentes</p>
           <p className="mt-2 text-3xl font-semibold text-warning">{pendingCount}</p>
           <p className="mt-1 text-xs text-muted-foreground">Candidatas para hoje ou próxima semana</p>
         </div>
-        <div className="glass-surface rounded-3xl p-5">
+        <div className="paper-note rounded-[1.65rem] p-5">
           <p className="text-sm text-muted-foreground">Bloqueadas</p>
           <p className="mt-2 text-3xl font-semibold text-danger">{blockedCount}</p>
           <p className="mt-1 text-xs text-muted-foreground">Precisam de decisão ou contexto</p>
         </div>
       </section>
 
-      <section className="glass-surface rounded-3xl p-4">
+      <section className="paper-note rounded-[1.75rem] p-4">
         <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-sm font-medium">Planejamento por dia</p>
@@ -382,88 +395,105 @@ export function TasksBoard({
         </div>
       </section>
 
-      {/* Kanban columns */}
-      <section id="tasks-board" className="scroll-mt-24 grid gap-4 xl:grid-cols-4">
-        {STATUS_COLUMNS.map((column) => {
-          const columnTasks = visibleTasks.filter((t) => t.status === column.id);
-          const Icon = column.icon;
+      <section id="tasks-board" className="paper-note scroll-mt-24 rounded-[1.75rem] p-5">
+        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-medium text-muted-foreground">Checklist da semana</p>
+            <h3 className="font-heading text-2xl font-bold tracking-[-0.03em] text-paper-ink">
+              Marque, ajuste e siga em frente.
+            </h3>
+          </div>
+          <Button
+            onClick={() => {
+              setEditingTask(null);
+              setTaskDialogOpen(true);
+            }}
+            className="rounded-2xl"
+          >
+            <Plus className="h-4 w-4" />
+            Nova tarefa
+          </Button>
+        </div>
 
-          return (
-            <div key={column.id} className="glass-surface rounded-3xl p-4">
-              <div className="mb-4 flex items-start justify-between gap-3">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <Icon className={cn("h-4 w-4", column.color)} />
-                    <h3 className="font-semibold">{column.label}</h3>
-                  </div>
-                  <p className="mt-0.5 text-xs text-muted-foreground">{column.description}</p>
-                </div>
-                <span className="rounded-full bg-surface-soft px-2 py-1 text-xs text-muted-foreground">
-                  {columnTasks.length}
-                </span>
-              </div>
-              <div className="space-y-3">
-                <AnimatePresence initial={false}>
-                {columnTasks.map((task) => {
-                  const projectName = getProjectName(task, projects);
-                  const projectColor = getProjectColor(task, projects);
+        <div className="space-y-3">
+          <AnimatePresence initial={false}>
+            {visibleTasks.map((task) => {
+              const projectName = getProjectName(task, projects);
+              const projectColor = getProjectColor(task, projects);
+              const isDone = task.status === "done";
 
-                  return (
-                    <motion.article
-                      key={task.id}
-                      layout
-                      transition={{ layout: springSnap, ...springSnap }}
-                      initial={{ opacity: 0, y: 12, scale: 0.99 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{
-                        opacity: 0,
-                        scale: 0.97,
-                        transition: springSnap,
-                      }}
-                      className="group rounded-2xl border border-border bg-surface p-4 transition-[transform,border-color] duration-300 hover:-translate-y-0.5 hover:border-brand/40 dark:bg-default-50/30"
+              return (
+                <motion.article
+                  key={task.id}
+                  layout
+                  transition={{ layout: springSnap, ...springSnap }}
+                  initial={{ opacity: 0, y: 10, scale: 0.99 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.97, transition: springSnap }}
+                  className={cn(
+                    "group rounded-2xl border border-border/80 bg-transparent p-4 transition-colors duration-200 hover:bg-card/75 dark:bg-default-50/20",
+                    isDone && "bg-surface-soft/45",
+                  )}
+                >
+                  <div className="flex items-start gap-3">
+                    <button
+                      type="button"
+                      onClick={() => void handleToggleDone(task)}
+                      className={cn(
+                        "mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full border transition-colors duration-200",
+                        isDone
+                          ? "border-success bg-success text-white"
+                          : "border-border bg-paper hover:border-brand hover:text-brand",
+                      )}
+                      aria-label={isDone ? "Reabrir tarefa" : "Concluir tarefa"}
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <button
-                          onClick={() => handleStatusCycle(task)}
-                          className="mt-0.5 shrink-0 transition hover:scale-110"
-                          title={`Avançar para ${STATUS_CYCLE[task.status]}`}
-                        >
-                          <Icon
+                      {isDone ? <CheckCircle2 className="h-4 w-4" /> : <Circle className="h-4 w-4" />}
+                    </button>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="min-w-0">
+                          <h4
                             className={cn(
-                              "h-4 w-4",
-                              column.id === "done" ? "text-success" : "text-muted-foreground hover:text-brand",
+                              "text-base font-semibold leading-6",
+                              isDone && "text-muted-foreground line-through",
                             )}
-                          />
-                        </button>
-                        <h4
-                          className={cn(
-                            "flex-1 text-sm font-medium leading-5",
-                            column.id === "done" && "text-muted-foreground line-through",
-                          )}
-                        >
-                          {task.title}
-                        </h4>
-                        <div className="flex gap-1 opacity-0 transition group-hover:opacity-100">
-                          <button
+                          >
+                            {task.title}
+                          </h4>
+                          {task.description ? (
+                            <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
+                              {task.description}
+                            </p>
+                          ) : null}
+                        </div>
+                        <div className="flex shrink-0 gap-1">
+                          <Button
+                            type="button"
+                            size="icon-sm"
+                            variant="outline"
                             onClick={() => {
                               setEditingTask(task);
                               setTaskDialogOpen(true);
                             }}
-                            className="rounded-lg p-1 text-muted-foreground hover:text-foreground"
+                            className="rounded-lg"
+                            aria-label="Editar tarefa"
                           >
-                            <Pencil className="h-3.5 w-3.5" />
-                          </button>
-                          <button
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            size="icon-sm"
+                            variant="outline"
                             onClick={() => handleDeleteTask(task.id)}
-                            className="rounded-lg p-1 text-muted-foreground hover:text-danger"
+                            className="rounded-lg hover:text-danger"
+                            aria-label="Remover tarefa"
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
                       </div>
-                      {task.description ? (
-                        <p className="mt-2 text-xs text-muted-foreground line-clamp-2">{task.description}</p>
-                      ) : null}
+
                       <div className="mt-3 flex flex-wrap items-center gap-2">
                         <Badge
                           className={cn(
@@ -472,6 +502,9 @@ export function TasksBoard({
                           )}
                         >
                           {PRIORITY_LABELS[task.priority] ?? task.priority}
+                        </Badge>
+                        <Badge className="rounded-full bg-secondary text-secondary-foreground border-transparent">
+                          {STATUS_LABELS[task.status]}
                         </Badge>
                         {projectName ? (
                           <Badge
@@ -489,31 +522,42 @@ export function TasksBoard({
                             {format(new Date(task.plannedFor), "dd/MM")}
                           </Badge>
                         ) : null}
+                        {task.status !== "done" && task.status !== "todo" ? (
+                          <button
+                            type="button"
+                            onClick={() => void handleStatusCycle(task)}
+                            className="text-xs font-medium text-muted-foreground underline-offset-4 transition-colors duration-200 hover:text-brand hover:underline"
+                          >
+                            Avançar status
+                          </button>
+                        ) : null}
                       </div>
-                    </motion.article>
-                  );
-                })}
-                </AnimatePresence>
-                {!columnTasks.length ? (
-                  <button
-                    onClick={() => {
-                      setEditingTask(null);
-                      setTaskDialogOpen(true);
-                    }}
-                    className="w-full rounded-2xl border border-dashed border-border py-6 text-sm text-muted-foreground transition hover:border-brand hover:text-brand"
-                  >
-                    + Adicionar tarefa
-                  </button>
-                ) : null}
-              </div>
-            </div>
-          );
-        })}
+                    </div>
+                  </div>
+                </motion.article>
+              );
+            })}
+          </AnimatePresence>
+
+          {!visibleTasks.length ? (
+            <Button
+              type="button"
+              onClick={() => {
+                setEditingTask(null);
+                setTaskDialogOpen(true);
+              }}
+              variant="outline"
+              className="h-auto w-full rounded-2xl border-dashed py-10 text-muted-foreground hover:text-foreground"
+            >
+              + Adicionar primeira tarefa
+            </Button>
+          ) : null}
+        </div>
       </section>
 
       {/* Project distribution */}
       {projects.length > 0 ? (
-        <section className="glass-surface rounded-3xl p-6">
+        <section className="paper-note rounded-[1.75rem] p-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="rounded-2xl bg-brand-soft p-3 text-brand">
@@ -534,7 +578,7 @@ export function TasksBoard({
                 : 0;
 
               return (
-                <div key={project.id} className="rounded-3xl bg-surface-soft p-5">
+                <div key={project.id} className="rounded-3xl border border-border bg-transparent p-5 transition-colors duration-200 hover:bg-card/70">
                   <div className="flex items-center gap-3">
                     <span
                       className="h-3 w-3 rounded-full"

@@ -2,11 +2,16 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
+@source "../../node_modules/@blocknote/shadcn";
+
 @custom-variant dark (&:is(.dark *));
 
 :root {
   --surface: #ffffff;
-  --surface-soft: #f1efeb;
+  --surface-soft: #f1eadf;
+  --paper: #fffaf0;
+  --paper-ink: #19130d;
+  --paper-line: rgb(88 63 37 / 0.045);
   --brand: #ffc100;
   --brand-soft: #fff3d0;
   --primary-strong: #e0a800;
@@ -14,11 +19,11 @@
   --danger: #dc2626;
   --warning: #d97706;
 
-  --shadow-paper: 0 1px 2px rgb(13 13 13 / 0.04), 0 10px 28px rgb(13 13 13 / 0.045);
-  --shadow-paper-sm: 0 1px 2px rgb(13 13 13 / 0.05);
+  --shadow-paper: 0 1px 1px rgb(65 45 20 / 0.05), 0 18px 42px rgb(65 45 20 / 0.075);
+  --shadow-paper-sm: 0 1px 1px rgb(65 45 20 / 0.05), 0 8px 22px rgb(65 45 20 / 0.045);
 
   /* Shadcn/base tokens */
-  --background: #f5f4f1;
+  --background: #f7f2e8;
   --foreground: #0d0d0d;
   --card: #ffffff;
   --card-foreground: #0d0d0d;
@@ -66,6 +71,8 @@
   --color-foreground: var(--foreground);
   --color-surface: var(--surface);
   --color-surface-soft: var(--surface-soft);
+  --color-paper: var(--paper);
+  --color-paper-ink: var(--paper-ink);
   --color-border: var(--border);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
@@ -104,7 +111,7 @@
   --radius-4xl: calc(var(--radius) * 2.6);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-geist-sans);
+  --font-heading: var(--font-libre-baskerville);
 
   /* Paleta default — light (zinc) */
   --color-default-50: var(--default-50);
@@ -123,6 +130,9 @@
 .dark {
   --surface: #1a1917;
   --surface-soft: #24221f;
+  --paper: #1f1b15;
+  --paper-ink: #faf4e8;
+  --paper-line: rgb(255 236 204 / 0.04);
   --brand: #fbbf24;
   --brand-soft: #3d3318;
   --primary-strong: #d97706;
@@ -176,7 +186,10 @@
 }
 
 body {
-  background: var(--background);
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--brand) 16%, transparent), transparent 34rem),
+    linear-gradient(120deg, color-mix(in srgb, var(--paper) 55%, transparent), transparent 42%),
+    var(--background);
   color: var(--foreground);
   font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   text-rendering: optimizeLegibility;
@@ -195,23 +208,128 @@ html {
   outline-offset: 3px;
 }
 
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]) {
+  cursor: pointer;
+}
+
 ::selection {
   background: color-mix(in srgb, var(--brand) 85%, transparent);
   color: var(--foreground);
 }
 
 .glass-surface {
-  background: var(--surface);
-  border: 1px solid color-mix(in srgb, var(--foreground) 7%, transparent);
-  box-shadow: var(--shadow-paper-sm);
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--surface) 98%, var(--paper)), var(--surface)),
+    var(--surface);
+  border: 1px solid color-mix(in srgb, var(--foreground) 10%, transparent);
+  box-shadow: var(--shadow-paper);
 }
 
 .soft-grid {
-  background-image: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--surface) 52%, transparent) 0%,
-    transparent 34%
-  );
+  background-image:
+    linear-gradient(var(--paper-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--paper-line) 1px, transparent 1px),
+    linear-gradient(180deg, color-mix(in srgb, var(--surface) 45%, transparent) 0%, transparent 34%);
+  background-size: 100% 1.35rem, 1.35rem 100%, 100% 100%;
+  background-position: 0 0.5rem, 0.5rem 0, 0 0;
+}
+
+.paper-sheet {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 18% 8%, color-mix(in srgb, var(--brand-soft) 58%, transparent), transparent 18rem),
+    linear-gradient(140deg, color-mix(in srgb, var(--paper) 36%, var(--surface)), var(--surface) 62%),
+    var(--surface);
+  border: 1px solid color-mix(in srgb, var(--paper-ink) 9%, transparent);
+  box-shadow: var(--shadow-paper);
+}
+
+.paper-sheet::before {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(90deg, color-mix(in srgb, var(--brand) 14%, transparent), transparent 22%),
+    radial-gradient(circle at 70% 20%, color-mix(in srgb, var(--foreground) 4%, transparent), transparent 12rem);
+  opacity: 0.45;
+}
+
+.paper-sheet > * {
+  position: relative;
+  z-index: 1;
+}
+
+.paper-note {
+  background: color-mix(in srgb, var(--surface) 96%, var(--paper));
+  border: 1px solid color-mix(in srgb, var(--paper-ink) 6%, transparent);
+  box-shadow: 0 1px 1px rgb(65 45 20 / 0.025), 0 6px 18px rgb(65 45 20 / 0.025);
+}
+
+.interactive-card {
+  transition-property: border-color, background-color, box-shadow;
+  transition-duration: 200ms;
+}
+
+.interactive-card:hover {
+  border-color: color-mix(in srgb, var(--brand) 38%, transparent);
+  box-shadow: var(--shadow-paper);
+}
+
+.icon-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid color-mix(in srgb, var(--foreground) 8%, transparent);
+  background: color-mix(in srgb, var(--surface) 92%, var(--paper));
+  color: var(--muted-foreground);
+  box-shadow: var(--shadow-paper-sm);
+  transition-property: transform, color, background-color, border-color, box-shadow;
+  transition-duration: 180ms;
+}
+
+.icon-action:hover {
+  transform: scale(1.02);
+  border-color: color-mix(in srgb, var(--brand) 40%, transparent);
+  background: color-mix(in srgb, var(--brand-soft) 55%, var(--surface));
+  color: var(--foreground);
+  box-shadow: var(--shadow-paper-sm);
+}
+
+.link-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid color-mix(in srgb, var(--foreground) 10%, transparent);
+  background: var(--surface);
+  color: var(--foreground);
+  box-shadow: var(--shadow-paper-sm);
+  transition-property: transform, color, background-color, border-color, box-shadow;
+  transition-duration: 180ms;
+}
+
+.link-button:hover {
+  transform: scale(1.02);
+  border-color: color-mix(in srgb, var(--brand) 45%, transparent);
+  background: color-mix(in srgb, var(--brand-soft) 45%, var(--surface));
+  color: var(--foreground);
+}
+
+.link-button:active,
+.icon-action:active {
+  transform: scale(0.98);
+}
+
+.paper-panel {
+  background: color-mix(in srgb, var(--surface) 80%, transparent);
+  border-block: 1px solid color-mix(in srgb, var(--foreground) 7%, transparent);
+}
+
+.paper-row {
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
+  border: 1px solid color-mix(in srgb, var(--foreground) 6%, transparent);
 }
 
 .scrollbar-none {

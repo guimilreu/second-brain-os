@@ -1,11 +1,12 @@
 import { differenceInCalendarDays, endOfMonth, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { ArrowDownLeft, ArrowUpRight, Landmark, ListTodo, Sparkles } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, Landmark, ListTodo, NotebookPen, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { MetricCard } from "@/components/ui/MetricCard";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Reveal } from "@/components/motion/Reveal";
 import { getFinanceOverview } from "@/features/finance/lib/data";
+import { getNotesCount } from "@/features/notes/lib/data";
 import { getTasksOverview } from "@/features/tasks/lib/data";
 import { requireCurrentUser } from "@/lib/auth/current-user";
 import { formatCurrency } from "@/lib/utils/format";
@@ -15,9 +16,10 @@ export const metadata = { title: "Dashboard — Second Brain OS" };
 
 export default async function DashboardPage() {
   const user = await requireCurrentUser();
-  const [finance, tasks] = await Promise.all([
+  const [finance, tasks, notesCount] = await Promise.all([
     getFinanceOverview(user.userId),
     getTasksOverview(user.userId),
+    getNotesCount(user.userId),
   ]);
 
   const doneTasks = tasks.tasks.filter((t) => t.status === "done").length;
@@ -51,52 +53,50 @@ export default async function DashboardPage() {
         description="Finanças, tarefas e objetivos — tudo num só lugar."
       />
 
-      {/* KPIs */}
       <Reveal>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard
-          title="Saldo total"
-          value={formatCurrency(finance.totalBalance)}
-          detail={`${finance.accounts.length} conta${finance.accounts.length !== 1 ? "s" : ""}`}
-          icon="landmark"
-          trend="neutral"
-          index={0}
-        />
-        <MetricCard
-          title="Livre para gastar"
-          value={formatCurrency(finance.forecast.freeToSpend)}
-          detail="Este mês, após recorrências"
-          trend={finance.forecast.freeToSpend >= 0 ? "up" : "down"}
-          icon="trending-up"
-          index={1}
-        />
-        <MetricCard
-          title="Sprint atual"
-          value={`${doneTasks}/${totalTasks} tarefas`}
-          detail={`${sprintProgress}% concluído`}
-          trend={sprintProgress >= 50 ? "up" : "neutral"}
-          icon="check-circle"
-          index={2}
-        />
-        <MetricCard
-          title="Metas em andamento"
-          value={`${topGoals.length} ativa${topGoals.length !== 1 ? "s" : ""}`}
-          detail="Cofrinhos + objetivos"
-          icon="target"
-          trend="neutral"
-          index={3}
-        />
-      </div>
+        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+          <MetricCard
+            title="Saldo total"
+            value={formatCurrency(finance.totalBalance)}
+            detail={`${finance.accounts.length} conta${finance.accounts.length !== 1 ? "s" : ""}`}
+            icon="landmark"
+            trend="neutral"
+            index={0}
+          />
+          <MetricCard
+            title="Livre para gastar"
+            value={formatCurrency(finance.forecast.freeToSpend)}
+            detail="Após recorrências"
+            trend={finance.forecast.freeToSpend >= 0 ? "up" : "down"}
+            icon="trending-up"
+            index={1}
+          />
+          <MetricCard
+            title="Sprint atual"
+            value={`${doneTasks}/${totalTasks} tarefas`}
+            detail={`${sprintProgress}% concluído`}
+            trend={sprintProgress >= 50 ? "up" : "neutral"}
+            icon="check-circle"
+            index={2}
+          />
+          <MetricCard
+            title="Objetivos"
+            value={`${topGoals.length} ativa${topGoals.length !== 1 ? "s" : ""}`}
+            detail="Cofrinhos + metas"
+            icon="target"
+            trend="neutral"
+            index={3}
+          />
+        </div>
       </Reveal>
 
-      {/* Main content grid */}
       <Reveal delay={0.04}>
-        <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
-        <section className="glass-surface rounded-3xl p-6 xl:col-span-2">
-          <div className="grid gap-5 lg:grid-cols-[1fr_1.2fr] lg:items-center">
+        <div className="grid gap-6 xl:grid-cols-[1.35fr_0.65fr]">
+        <section className="paper-sheet rounded-[2.25rem] p-6 md:p-8 xl:row-span-2">
+          <div className="grid gap-7 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
             <div>
-              <p className="text-sm text-muted-foreground">Decisão de hoje</p>
-              <h2 className="mt-1 text-3xl font-semibold tracking-tight">
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Decisão de hoje</p>
+              <h2 className="font-heading mt-2 text-4xl font-bold tracking-[-0.04em] text-paper-ink">
                 {formatCurrency(dailyBudget)} por dia até virar o mês.
               </h2>
               <p className="mt-3 text-sm leading-6 text-muted-foreground">
@@ -104,20 +104,20 @@ export default async function DashboardPage() {
                 {formatCurrency(finance.forecast.allocationAmount)} separados para cofrinhos.
               </p>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-              <div className="rounded-3xl bg-surface-soft p-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="paper-note rounded-3xl p-4">
                 <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Livre</p>
                 <p className="mt-2 text-xl font-semibold">
                   {formatCurrency(finance.forecast.freeToSpend)}
                 </p>
               </div>
-              <div className="rounded-3xl bg-surface-soft p-4">
+              <div className="paper-note rounded-3xl p-4">
                 <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Atrasado</p>
                 <p className="mt-2 text-xl font-semibold text-warning">
                   {formatCurrency(finance.forecast.lateIncome + finance.forecast.lateExpenses)}
                 </p>
               </div>
-              <div className="rounded-3xl bg-surface-soft p-4">
+              <div className="paper-note rounded-3xl p-4">
                 <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Média 6m</p>
                 <p
                   className={cn(
@@ -128,7 +128,7 @@ export default async function DashboardPage() {
                   {formatCurrency(averageMonthlyNet)}
                 </p>
               </div>
-              <div className="rounded-3xl bg-surface-soft p-4">
+              <div className="paper-note rounded-3xl p-4">
                 <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Livre 12m</p>
                 <p
                   className={cn(
@@ -141,7 +141,7 @@ export default async function DashboardPage() {
                   {formatCurrency(finance.projectionCheckpoints.twelveMonths)}
                 </p>
               </div>
-              <div className="rounded-3xl bg-surface-soft p-4">
+              <div className="paper-note rounded-3xl p-4 sm:col-span-2">
                 <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Sprint</p>
                 <p className="mt-2 text-xl font-semibold">{sprintProgress}%</p>
               </div>
@@ -149,8 +149,7 @@ export default async function DashboardPage() {
           </div>
         </section>
 
-        {/* Recent transactions */}
-        <section className="glass-surface rounded-3xl p-6">
+        <section className="paper-note rounded-[1.75rem] p-6">
           <div className="mb-5 flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">Financeiro</p>
@@ -158,15 +157,15 @@ export default async function DashboardPage() {
             </div>
             <Link
               href="/finance"
-              className="rounded-2xl border border-border px-4 py-2 text-sm font-medium text-muted-foreground transition hover:border-brand hover:text-brand"
+              className="link-button rounded-2xl px-4 py-2 text-sm font-medium"
             >
               Ver tudo
             </Link>
           </div>
           {recentTransactions.length === 0 ? (
-            <div className="rounded-2xl bg-surface-soft p-6 text-center">
+            <div className="rounded-2xl bg-surface-soft/70 p-6 text-center">
               <p className="text-sm text-muted-foreground">Nenhuma transação ainda.</p>
-              <Link href="/finance" className="mt-2 text-sm text-brand hover:underline">
+              <Link href="/finance" className="mt-2 text-sm text-brand transition-colors duration-200 hover:text-primary-strong hover:underline">
                 Registrar primeira transação →
               </Link>
             </div>
@@ -175,7 +174,7 @@ export default async function DashboardPage() {
               {recentTransactions.map((t) => (
                 <div
                   key={String(t.id)}
-                  className="flex items-center gap-4 rounded-2xl px-4 py-3 transition hover:bg-surface-soft"
+                  className="paper-row flex items-center gap-4 rounded-2xl px-4 py-3 transition-colors duration-200 hover:bg-surface-soft/70"
                 >
                   <div
                     className={cn(
@@ -211,9 +210,8 @@ export default async function DashboardPage() {
           )}
         </section>
 
-        {/* Tasks + Goals */}
         <div className="space-y-6">
-          <section className="glass-surface rounded-3xl p-6">
+          <section className="paper-note rounded-[1.75rem] p-6">
             <div className="mb-4 flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Agenda financeira</p>
@@ -221,7 +219,7 @@ export default async function DashboardPage() {
               </div>
               <Link
                 href="/finance"
-                className="rounded-2xl border border-border px-4 py-2 text-sm font-medium text-muted-foreground transition hover:border-brand hover:text-brand"
+                className="link-button rounded-2xl px-4 py-2 text-sm font-medium"
               >
                 Ver mês
               </Link>
@@ -236,7 +234,7 @@ export default async function DashboardPage() {
                 {upcomingMoney.map((event) => (
                   <div
                     key={`${event.ruleId}-${event.date.toISOString()}`}
-                    className="flex items-center justify-between gap-3 rounded-2xl bg-surface-soft px-4 py-3"
+                    className="paper-row flex items-center justify-between gap-3 rounded-2xl px-4 py-3"
                   >
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium">{event.title}</p>
@@ -257,14 +255,13 @@ export default async function DashboardPage() {
                 ))}
               </div>
             ) : (
-              <p className="rounded-2xl bg-surface-soft p-4 text-sm text-muted-foreground">
+              <p className="rounded-2xl bg-surface-soft/70 p-4 text-sm text-muted-foreground">
                 Cadastre recorrências para o cockpit antecipar o mês.
               </p>
             )}
           </section>
 
-          {/* Urgent tasks */}
-          <section className="glass-surface rounded-3xl p-6">
+          <section className="paper-note rounded-[1.75rem] p-6">
             <div className="mb-4 flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Tarefas</p>
@@ -272,19 +269,19 @@ export default async function DashboardPage() {
               </div>
               <Link
                 href="/tasks"
-                className="rounded-2xl border border-border px-4 py-2 text-sm font-medium text-muted-foreground transition hover:border-brand hover:text-brand"
+                className="link-button rounded-2xl px-4 py-2 text-sm font-medium"
               >
                 Ver sprint
               </Link>
             </div>
             {urgentTasks.length === 0 ? (
-              <div className="rounded-2xl bg-surface-soft p-4 text-center">
+              <div className="rounded-2xl bg-surface-soft/70 p-4 text-center">
                 <p className="text-sm text-muted-foreground">
                   {totalTasks === 0
                     ? "Nenhuma tarefa esta semana."
                     : "Nenhuma tarefa urgente. Ótimo!"}
                 </p>
-                <Link href="/tasks" className="mt-1 text-sm text-brand hover:underline">
+                <Link href="/tasks" className="mt-1 text-sm text-brand transition-colors duration-200 hover:text-primary-strong hover:underline">
                   {totalTasks === 0 ? "Planejar sprint →" : "Ver todas as tarefas →"}
                 </Link>
               </div>
@@ -298,7 +295,7 @@ export default async function DashboardPage() {
                   return (
                     <div
                       key={String(task.id)}
-                      className="flex items-start gap-3 rounded-2xl bg-surface-soft px-4 py-3"
+                      className="paper-row flex items-start gap-3 rounded-2xl px-4 py-3"
                     >
                       <div
                         className={cn(
@@ -321,7 +318,7 @@ export default async function DashboardPage() {
 
           {/* Goals progress */}
           {topGoals.length > 0 ? (
-            <section className="glass-surface rounded-3xl p-6">
+            <section className="paper-note rounded-[1.75rem] p-6">
               <div className="mb-4 flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Objetivos</p>
@@ -329,7 +326,7 @@ export default async function DashboardPage() {
                 </div>
                 <Link
                   href="/finance"
-                  className="rounded-2xl border border-border px-4 py-2 text-sm font-medium text-muted-foreground transition hover:border-brand hover:text-brand"
+                  className="link-button rounded-2xl px-4 py-2 text-sm font-medium"
                 >
                   Gerenciar
                 </Link>
@@ -361,9 +358,8 @@ export default async function DashboardPage() {
       </div>
       </Reveal>
 
-      {/* Module cards */}
       <Reveal delay={0.07}>
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-3">
         {[
           {
             href: "/finance",
@@ -379,13 +375,20 @@ export default async function DashboardPage() {
             description: `${totalTasks} tarefa${totalTasks !== 1 ? "s" : ""} esta semana · ${sprintProgress}% concluído`,
             cta: "Ver sprint",
           },
+          {
+            href: "/notes",
+            icon: NotebookPen,
+            title: "Anotações",
+            description: `${notesCount} nota${notesCount !== 1 ? "s" : ""} · blocos, markdown e cores`,
+            cta: "Abrir anotações",
+          },
         ].map((area) => {
           const Icon = area.icon;
           return (
             <Link
               key={area.href}
               href={area.href}
-              className="glass-surface group rounded-3xl p-6 transition-[transform,border-color] duration-300 hover:-translate-y-0.5 hover:border-brand/40"
+              className="paper-note interactive-card group rounded-[1.75rem] p-5"
             >
               <div className="flex items-start justify-between gap-6">
                 <div className="rounded-3xl bg-brand-soft p-4 text-brand">
@@ -395,7 +398,7 @@ export default async function DashboardPage() {
                   {area.cta}
                 </span>
               </div>
-              <h2 className="mt-6 text-2xl font-semibold">{area.title}</h2>
+              <h2 className="font-heading mt-6 text-2xl font-bold tracking-[-0.03em]">{area.title}</h2>
               <p className="mt-2 text-sm text-muted-foreground">{area.description}</p>
             </Link>
           );
@@ -404,7 +407,7 @@ export default async function DashboardPage() {
       </Reveal>
 
       <Reveal delay={0.09}>
-      <section className="glass-surface rounded-3xl p-6">
+      <section className="paper-note rounded-[1.75rem] p-6">
         <div className="flex items-center gap-3">
           <div className="rounded-2xl bg-brand-soft p-3 text-brand">
             <Sparkles className="h-5 w-5" />
@@ -412,7 +415,7 @@ export default async function DashboardPage() {
           <div>
             <p className="font-semibold">Um OS que cresce com você</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Notas, hábitos, calendário, CRM pessoal e health tracking estão a caminho.
+              Hábitos, calendário, CRM pessoal e health tracking estão a caminho.
               A arquitetura já está pronta para expandir.
             </p>
           </div>

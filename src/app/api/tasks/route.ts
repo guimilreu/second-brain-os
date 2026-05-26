@@ -49,7 +49,7 @@ export async function PATCH(request: Request) {
     const task = await Task.findOneAndUpdate(
       { _id: payload.id, userId: user.userId },
       { $set: updates },
-      { new: true },
+      { returnDocument: "after" },
     );
 
     if (!task) {

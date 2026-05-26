@@ -1,6 +1,7 @@
 import { type NextRequest } from "next/server";
 import { requireCurrentUser } from "@/lib/auth/current-user";
 import { connectToDatabase } from "@/lib/db/mongodb";
+import { recurringRulePatchSchema } from "@/features/finance/lib/schemas";
 import { fail, handleApiError, ok } from "@/lib/http/api-response";
 import { serializeDocument } from "@/lib/utils/serialize";
 import { RecurringRule } from "@/models/RecurringRule";
@@ -14,14 +15,11 @@ export async function PATCH(
     const { id } = await params;
     await connectToDatabase();
 
-    const body = await request.json();
-    const { _id, userId, ...safe } = body as Record<string, unknown>;
-    void _id; void userId;
-
+    const patch = recurringRulePatchSchema.parse(await request.json());
     const rule = await RecurringRule.findOneAndUpdate(
       { _id: id, userId: user.userId },
-      { $set: safe },
-      { new: true },
+      { $set: patch },
+      { returnDocument: "after" },
     );
 
     if (!rule) return fail("Regra não encontrada.", 404);

@@ -73,7 +73,7 @@ export async function PATCH(
     const doc = await WishlistItem.findOneAndUpdate(
       { _id: id, userId: user.userId },
       { $set },
-      { new: true },
+      { returnDocument: "after" },
     );
 
     if (!doc) {

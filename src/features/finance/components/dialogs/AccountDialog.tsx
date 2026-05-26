@@ -13,6 +13,10 @@ type Account = {
   type: string;
   balance: number;
   color: string;
+  availableBalance?: number;
+  closingDay?: number;
+  dueDay?: number;
+  safeMinimum?: number;
 };
 
 type AccountDialogProps = {
@@ -28,31 +32,69 @@ const ACCOUNT_TYPES = [
   { value: "wallet", label: "Carteira / Dinheiro físico" },
   { value: "investment", label: "Investimento" },
   { value: "credit", label: "Cartão de crédito" },
+  { value: "loan", label: "Empréstimo / financiamento" },
 ];
 
 function makeInitial(account?: Account | null) {
   return account
-    ? { name: account.name, institution: account.institution, type: account.type, balance: account.balance, color: account.color }
-    : { name: "", institution: "", type: "checking", balance: 0, color: "#ffc100" };
+    ? {
+        name: account.name,
+        institution: account.institution,
+        type: account.type,
+        balance: account.balance,
+        color: account.color,
+        closingDay: account.closingDay,
+        dueDay: account.dueDay,
+        safeMinimum: account.safeMinimum ?? 0,
+      }
+    : {
+        name: "",
+        institution: "",
+        type: "checking",
+        balance: 0,
+        color: "#ffc100",
+        closingDay: undefined as number | undefined,
+        dueDay: undefined as number | undefined,
+        safeMinimum: 0,
+      };
 }
 
 export function AccountDialog({ open, onClose, account, onSaved }: AccountDialogProps) {
   const [form, setForm] = useState(() => makeInitial(account));
   const [saving, setSaving] = useState(false);
 
-  function set(key: keyof ReturnType<typeof makeInitial>, value: string | number) {
+  function set(
+    key: keyof ReturnType<typeof makeInitial>,
+    value: string | number | undefined,
+  ) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
+    const payload: Record<string, unknown> = {
+      name: form.name,
+      institution: form.institution,
+      type: form.type,
+      balance: Number(form.balance),
+      color: form.color,
+      safeMinimum: Number(form.safeMinimum) || 0,
+    };
+    if (form.type === "credit") {
+      if (form.closingDay !== undefined) {
+        payload.closingDay = Number(form.closingDay);
+      }
+      if (form.dueDay !== undefined) {
+        payload.dueDay = Number(form.dueDay);
+      }
+    }
     try {
       if (account?.id) {
-        await axios.patch(`/api/finance/accounts/${account.id}`, form);
+        await axios.patch(`/api/finance/accounts/${account.id}`, payload);
         toast.success("Conta atualizada.");
       } else {
-        await axios.post("/api/finance/accounts", form);
+        await axios.post("/api/finance/accounts", payload);
         toast.success("Conta criada.");
       }
       onSaved();
@@ -106,6 +148,44 @@ export function AccountDialog({ open, onClose, account, onSaved }: AccountDialog
             />
           </FormField>
         </div>
+        {form.type === "credit" && (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FormField label="Dia fechamento fatura (1–31)">
+              <Input
+                type="number"
+                min={1}
+                max={31}
+                value={form.closingDay ?? ""}
+                onChange={(e) =>
+                  set(
+                    "closingDay",
+                    e.target.value ? Number(e.target.value) : undefined,
+                  )
+                }
+              />
+            </FormField>
+            <FormField label="Dia vencimento (1–31)">
+              <Input
+                type="number"
+                min={1}
+                max={31}
+                value={form.dueDay ?? ""}
+                onChange={(e) =>
+                  set("dueDay", e.target.value ? Number(e.target.value) : undefined)
+                }
+              />
+            </FormField>
+          </div>
+        )}
+        <FormField label="Alerta: saldo livre mínimo (R$, opcional)">
+          <Input
+            type="number"
+            step="0.01"
+            min={0}
+            value={form.safeMinimum}
+            onChange={(e) => set("safeMinimum", parseFloat(e.target.value) || 0)}
+          />
+        </FormField>
         <FormField label="Cor de identificação">
           <ColorSwatch value={form.color} onChange={(c) => set("color", c)} />
         </FormField>

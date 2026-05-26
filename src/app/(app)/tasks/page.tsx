@@ -23,14 +23,14 @@ export default async function TasksPage() {
           <>
             <a
               href="#sprint-board"
-              className="hidden rounded-2xl border border-border bg-surface px-4 py-3 text-sm font-medium text-muted-foreground transition hover:border-brand hover:text-brand md:inline-flex"
+              className="link-button hidden rounded-2xl px-4 py-3 text-sm font-medium md:inline-flex"
             >
               <CalendarDays className="mr-2 h-4 w-4" />
               Semana atual
             </a>
             <a
               href="#tasks-board"
-              className="inline-flex rounded-2xl bg-brand px-4 py-3 text-sm font-medium text-primary-foreground shadow-lg shadow-primary/25"
+              className="inline-flex rounded-2xl bg-brand px-4 py-3 text-sm font-medium text-primary-foreground shadow-paper-sm transition-[transform,background-color,box-shadow] duration-200 hover:scale-[1.02] hover:bg-brand/85 hover:shadow-paper active:scale-[0.98]"
             >
               <Plus className="mr-2 h-4 w-4" />
               Planejar

@@ -29,7 +29,7 @@ async function upsertMonthBudget(request: Request) {
   const doc = await WishlistMonthBudget.findOneAndUpdate(
     { userId: user.userId, monthKey: parsed.monthKey },
     { $set: { capAmount: parsed.capAmount } },
-    { upsert: true, new: true },
+    { upsert: true, returnDocument: "after" },
   );
 
   return ok(serializeDocument(doc));

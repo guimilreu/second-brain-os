@@ -14,7 +14,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
-import { springSnap, springUI } from "@/lib/motion/spring";
+import { easeFluid, springUI } from "@/lib/motion/spring";
 import { cn } from "@/lib/utils/cn";
 
 /** Chaves estáveis serializáveis (Server Component → Client Component). */
@@ -61,18 +61,23 @@ export function MetricCard({
       initial={{ opacity: 0, y: 18 }}
       animate={{ opacity: 1, y: 0 }}
       transition={entryTransition}
-      whileHover={prefersReducedMotion ? undefined : { y: -2 }}
-      className="glass-surface rounded-3xl p-5 transition-[box-shadow,transform] duration-300"
+      className="rounded-2xl border border-border bg-card p-5 shadow-paper-sm transition-[background-color,border-color,box-shadow] duration-200 hover:border-brand/30 hover:shadow-paper"
     >
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-sm text-muted-foreground">{title}</p>
-          <p className="mt-3 text-2xl font-semibold tracking-tight">{value}</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">{title}</p>
+          <p className="mt-3 text-2xl font-semibold tracking-tight text-paper-ink">{value}</p>
         </div>
         <motion.div
-          whileHover={{ rotate: [0, -6, 6, 0] }}
-          transition={springSnap}
-          className="rounded-2xl border border-border bg-surface-soft p-2.5 text-foreground"
+          whileHover={
+            prefersReducedMotion ? undefined : { rotate: [0, -6, 6, 0] }
+          }
+          transition={
+            prefersReducedMotion
+              ? undefined
+              : { rotate: { duration: 0.42, ease: easeFluid } }
+          }
+          className="rounded-2xl border border-border bg-card/80 p-2.5 text-foreground shadow-paper-sm"
         >
           <Icon className="h-5 w-5" />
         </motion.div>

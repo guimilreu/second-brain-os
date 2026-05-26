@@ -14,7 +14,8 @@ export type ForecastRecurringRule = {
   amount: number;
   type: "income" | "expense";
   category: string;
-  cadence: "weekly" | "monthly";
+  cadence: "weekly" | "monthly" | "biweekly" | "yearly" | "custom";
+  intervalDays?: number;
   dayOfWeek?: number;
   dayOfMonth?: number;
   startsAt: string | Date;
@@ -27,10 +28,12 @@ export type ForecastRecurringRule = {
 export type ForecastTransaction = {
   amount: number;
   type: "income" | "expense";
-  status: "planned" | "confirmed" | "late" | "cancelled";
+  status: "planned" | "scheduled" | "confirmed" | "late" | "cancelled";
   occurredAt: string | Date;
   recurringRuleId?: string;
   recurringOccurrenceDate?: string | Date;
+  category?: string;
+  bankAccountId?: string;
 };
 
 export type ForecastOccurrence = {
@@ -59,6 +62,8 @@ export type FinanceForecast = {
   allocationAmount: number;
   allocationsByPot: Record<string, number>;
   occurrences: ForecastOccurrence[];
+  byCategory: { category: string; income: number; expense: number }[];
+  byAccount: { bankAccountId: string; income: number; expense: number; net: number }[];
 };
 
 function isWithinRange(date: Date, start: Date, end: Date) {
@@ -143,6 +148,75 @@ export function generateRecurringOccurrences(
       }
     }
 
+    if (rule.cadence === "biweekly" && rule.dayOfWeek !== undefined) {
+      let cursor = effectiveStart;
+      while (cursor.getDay() !== rule.dayOfWeek) {
+        cursor = addDays(cursor, 1);
+      }
+      while (isBefore(cursor, ruleStart)) {
+        cursor = addDays(cursor, 14);
+      }
+      while (isWithinRange(cursor, effectiveStart, effectiveEnd)) {
+        occurrences.push({
+          ruleId: rule.id,
+          title: rule.title,
+          amount: rule.amount,
+          type: rule.type,
+          category: rule.category,
+          date: cursor,
+          allocationAmount: rule.amount * ((rule.allocationPercent ?? 0) / 100),
+          savingsPotId: rule.savingsPotId,
+          status: isBefore(cursor, today) ? "late" : "expected",
+        });
+        cursor = addDays(cursor, 14);
+      }
+    }
+
+    if (rule.cadence === "yearly") {
+      const anchor = startOfDay(new Date(rule.startsAt));
+      for (let y = effectiveStart.getFullYear(); y <= effectiveEnd.getFullYear(); y += 1) {
+        const cursor = new Date(
+          y,
+          anchor.getMonth(),
+          clampDayOfMonth(y, anchor.getMonth(), anchor.getDate()),
+        );
+        if (isWithinRange(cursor, effectiveStart, effectiveEnd)) {
+          occurrences.push({
+            ruleId: rule.id,
+            title: rule.title,
+            amount: rule.amount,
+            type: rule.type,
+            category: rule.category,
+            date: cursor,
+            allocationAmount: rule.amount * ((rule.allocationPercent ?? 0) / 100),
+            savingsPotId: rule.savingsPotId,
+            status: isBefore(cursor, today) ? "late" : "expected",
+          });
+        }
+      }
+    }
+
+    if (rule.cadence === "custom" && rule.intervalDays !== undefined) {
+      let cursor = ruleStart;
+      while (isBefore(cursor, effectiveStart)) {
+        cursor = addDays(cursor, rule.intervalDays);
+      }
+      while (isWithinRange(cursor, effectiveStart, effectiveEnd)) {
+        occurrences.push({
+          ruleId: rule.id,
+          title: rule.title,
+          amount: rule.amount,
+          type: rule.type,
+          category: rule.category,
+          date: cursor,
+          allocationAmount: rule.amount * ((rule.allocationPercent ?? 0) / 100),
+          savingsPotId: rule.savingsPotId,
+          status: isBefore(cursor, today) ? "late" : "expected",
+        });
+        cursor = addDays(cursor, rule.intervalDays);
+      }
+    }
+
     if (rule.cadence === "monthly" && rule.dayOfMonth !== undefined) {
       let cursor = new Date(
         effectiveStart.getFullYear(),
@@ -189,6 +263,12 @@ export function generateRecurringOccurrences(
   return occurrences.sort((a, b) => a.date.getTime() - b.date.getTime());
 }
 
+function isPlannedLike(
+  status: ForecastTransaction["status"],
+) {
+  return status === "planned" || status === "scheduled";
+}
+
 export function calculateFinanceForecast(
   transactions: ForecastTransaction[],
   rules: ForecastRecurringRule[],
@@ -224,11 +304,11 @@ export function calculateFinanceForecast(
     .reduce((total, transaction) => total + transaction.amount, 0);
 
   const plannedIncome = activeTransactions
-    .filter((transaction) => transaction.type === "income" && transaction.status === "planned")
+    .filter((transaction) => transaction.type === "income" && isPlannedLike(transaction.status))
     .reduce((total, transaction) => total + transaction.amount, 0);
 
   const plannedExpenses = activeTransactions
-    .filter((transaction) => transaction.type === "expense" && transaction.status === "planned")
+    .filter((transaction) => transaction.type === "expense" && isPlannedLike(transaction.status))
     .reduce((total, transaction) => total + transaction.amount, 0);
 
   const lateIncome = activeTransactions
@@ -262,6 +342,34 @@ export function calculateFinanceForecast(
     return acc;
   }, {});
 
+  const byCategoryMap: Record<string, { income: number; expense: number }> = {};
+  for (const t of activeTransactions) {
+    const cat = t.category ?? "Outro";
+    if (!byCategoryMap[cat]) byCategoryMap[cat] = { income: 0, expense: 0 };
+    if (t.type === "income") byCategoryMap[cat].income += t.amount;
+    else byCategoryMap[cat].expense += t.amount;
+  }
+  const byCategory = Object.entries(byCategoryMap).map(([category, v]) => ({
+    category,
+    income: v.income,
+    expense: v.expense,
+  }));
+
+  const byAccountMap: Record<string, { income: number; expense: number }> = {};
+  for (const t of activeTransactions) {
+    if (!t.bankAccountId) continue;
+    const aid = t.bankAccountId;
+    if (!byAccountMap[aid]) byAccountMap[aid] = { income: 0, expense: 0 };
+    if (t.type === "income") byAccountMap[aid].income += t.amount;
+    else byAccountMap[aid].expense += t.amount;
+  }
+  const byAccount = Object.entries(byAccountMap).map(([bankAccountId, v]) => ({
+    bankAccountId,
+    income: v.income,
+    expense: v.expense,
+    net: v.income - v.expense,
+  }));
+
   const projectedNet =
     confirmedIncome +
     plannedIncome +
@@ -286,5 +394,7 @@ export function calculateFinanceForecast(
     allocationsByPot,
     freeToSpend: projectedNet - allocationAmount,
     occurrences,
+    byCategory,
+    byAccount,
   };
 }

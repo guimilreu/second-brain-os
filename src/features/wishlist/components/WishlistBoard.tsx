@@ -23,6 +23,7 @@ import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import type { WishlistOverview, WishlistOverviewItem } from "@/features/wishlist/lib/types";
 import { formatMonthKeyLabel } from "@/features/wishlist/lib/format";
 import { TransactionDialog } from "@/features/finance/components/dialogs/TransactionDialog";
@@ -185,12 +186,12 @@ function WishlistColumn({
     <div
       ref={droppable.setNodeRef}
       className={cn(
-        "flex max-h-[min(70vh,calc(100vh-240px))] min-w-[min(320px,calc(100vw-2rem))] flex-col rounded-3xl border border-border bg-surface/60 p-3 shadow-sm backdrop-blur-md dark:bg-default-50/30",
+        "paper-note flex max-h-[min(70vh,calc(100vh-240px))] min-w-[min(320px,calc(100vw-2rem))] flex-col rounded-[1.75rem] p-3 backdrop-blur-md dark:bg-default-50/30",
         droppable.isOver && "ring-2 ring-primary/35",
       )}
     >
       <div className="mb-3 shrink-0 border-b border-border pb-3">
-        <h2 className="text-base font-semibold tracking-tight">{title}</h2>
+        <h2 className="font-heading text-lg font-bold tracking-[-0.03em] text-paper-ink">{title}</h2>
         {subtitle ? (
           <p className="text-xs font-medium text-muted-foreground">{subtitle}</p>
         ) : null}
@@ -201,7 +202,7 @@ function WishlistColumn({
           strategy={verticalListSortingStrategy}
         >
           {sorted.length === 0 ? (
-            <p className="rounded-2xl border border-dashed border-border px-3 py-6 text-center text-sm text-muted-foreground">
+            <p className="rounded-2xl border border-dashed border-border bg-card px-3 py-6 text-center text-sm text-muted-foreground shadow-paper-sm">
               Arraste itens pra cá ou crie novo.
             </p>
           ) : (
@@ -396,102 +397,100 @@ export function WishlistBoard({ overview }: { overview: WishlistOverview }) {
       transition={springPage}
       className="space-y-6"
     >
-      <div className="flex flex-col gap-4 rounded-3xl border border-border bg-surface/80 p-4 backdrop-blur-md dark:bg-default-50/30 lg:flex-row lg:items-start lg:justify-between">
-        <div className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-            Foco do mês
-          </p>
+      <div className="rounded-3xl border border-border bg-card p-6 shadow-paper-sm">
+        <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                Foco do mês
+              </p>
+              <h2 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
+                Planejamento de compras
+              </h2>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setBudgetOpen(true)}
+                className="rounded-2xl"
+              >
+                Definir teto mensal
+              </Button>
+              <Button
+                type="button"
+                onClick={openCreate}
+                className="rounded-2xl"
+              >
+                <Plus className="h-4 w-4" />
+                Novo desejo
+              </Button>
+            </div>
+          </div>
+
           <div className="flex flex-wrap gap-2">
             {extMonthKeys.map((key) => (
-              <button
+              <Button
                 key={key}
                 type="button"
+                size="sm"
+                variant={key === selectedMonthKey ? "default" : "outline"}
                 onClick={() => setSelectedMonthKey(key)}
                 className={cn(
-                  "rounded-2xl border px-3 py-1.5 text-sm font-medium transition",
-                  key === selectedMonthKey
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground",
+                  "rounded-2xl",
+                  key !== selectedMonthKey && "text-muted-foreground",
                 )}
               >
                 {formatMonthKeyLabel(key)}
-              </button>
+              </Button>
             ))}
           </div>
-        </div>
-        <div className="w-full max-w-md space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-sm font-medium text-muted-foreground">
-              Planejado na lista ({selectedMonthKey})
-            </p>
-            <span
-              className={cn(
-                "text-lg font-semibold",
-                overSelected ? "text-danger" : "text-foreground",
-              )}
-            >
-              {brl.format(totalSelected)}
-            </span>
+
+          <div className="grid gap-4 border-t border-border pt-5 sm:grid-cols-3">
+            <div className="rounded-2xl bg-surface-soft/60 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Planejado</p>
+              <p className={cn("mt-1 text-xl font-semibold", overSelected ? "text-danger" : "text-foreground")}>
+                {brl.format(totalSelected)}
+              </p>
+            </div>
+            <div className="rounded-2xl bg-surface-soft/60 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Teto</p>
+              <p className="mt-1 text-xl font-semibold text-foreground">
+                {capForSelected > 0 ? brl.format(capForSelected) : "Sem teto"}
+              </p>
+            </div>
+            <div className="rounded-2xl bg-surface-soft/60 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Livre</p>
+              <p className="mt-1 text-xl font-semibold text-foreground">{brl.format(freeHint)}</p>
+            </div>
           </div>
           {capForSelected > 0 ? (
-            <>
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>Uso vs teto</span>
-                <span>
-                  {brl.format(totalSelected)} / {brl.format(capForSelected)}
-                </span>
-              </div>
-              <div className="h-2 rounded-full bg-default-100 dark:bg-default-100/40">
-                <div
-                  className={cn(
-                    "h-2 rounded-full transition-all",
-                    overSelected ? "bg-danger" : "bg-primary",
-                  )}
-                  style={{ width: `${capRatio * 100}%` }}
-                />
-              </div>
-            </>
-          ) : (
-            <p className="text-xs text-muted-foreground">Sem teto definido para este mês.</p>
-          )}
-          <p className="text-xs text-muted-foreground">
-            Livre no financeiro (projeção do mês):{" "}
-            <span className="font-semibold text-foreground">
-              {brl.format(freeHint)}
-            </span>
-          </p>
-          {categoryRanking.length > 0 ? (
-            <div className="rounded-2xl border border-border/80 bg-surface-soft/50 p-3 dark:bg-default-100/10">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Estimado por categoria
-              </p>
-              <ul className="max-h-32 space-y-1 overflow-y-auto text-xs">
-                {categoryRanking.map(([cat, amount]) => (
-                  <li key={cat} className="flex justify-between gap-2 text-muted-foreground">
-                    <span className="truncate font-medium text-foreground">{cat}</span>
-                    <span className="shrink-0 tabular-nums">{brl.format(amount)}</span>
-                  </li>
-                ))}
-              </ul>
+            <div className="h-2 rounded-full bg-default-100 dark:bg-default-100/40">
+              <div
+                className={cn(
+                  "h-2 rounded-full transition-all",
+                  overSelected ? "bg-danger" : "bg-primary",
+                )}
+                style={{ width: `${capRatio * 100}%` }}
+              />
             </div>
           ) : null}
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => setBudgetOpen(true)}
-              className="rounded-2xl border border-border bg-background px-4 py-2 text-sm font-medium text-foreground transition hover:border-primary/50"
-            >
-              Definir teto mensal
-            </button>
-            <button
-              type="button"
-              onClick={openCreate}
-              className="inline-flex items-center gap-2 rounded-2xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/25"
-            >
-              <Plus className="h-4 w-4" />
-              Novo desejo
-            </button>
+
+        {categoryRanking.length > 0 ? (
+          <div className="border-t border-border pt-4">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Estimado por categoria
+            </p>
+            <ul className="grid gap-2 text-xs sm:grid-cols-2 lg:grid-cols-4">
+              {categoryRanking.map(([cat, amount]) => (
+                <li key={cat} className="flex justify-between gap-2 rounded-xl bg-card/60 px-3 py-2 text-muted-foreground">
+                  <span className="truncate font-medium text-foreground">{cat}</span>
+                  <span className="shrink-0 tabular-nums">{brl.format(amount)}</span>
+                </li>
+              ))}
+            </ul>
           </div>
+        ) : null}
         </div>
       </div>
 

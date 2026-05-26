@@ -1,6 +1,9 @@
 import { addMonths, endOfMonth, format, startOfMonth, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { calculateFinanceForecast } from "@/features/finance/lib/forecast";
+import { buildFinanceAlerts } from "@/features/finance/lib/alerts";
+import { getNetWorthSeries } from "@/features/finance/lib/netWorth";
+import { ensureDefaultCategories } from "@/lib/finance/seed-categories";
 import { connectToDatabase } from "@/lib/db/mongodb";
 import { serializeDocuments } from "@/lib/utils/serialize";
 import { BankAccount } from "@/models/BankAccount";
@@ -8,14 +11,16 @@ import { FinancialGoal } from "@/models/FinancialGoal";
 import { RecurringRule } from "@/models/RecurringRule";
 import { SavingsPot } from "@/models/SavingsPot";
 import { Transaction } from "@/models/Transaction";
+import { CreditCardInvoice } from "@/models/CreditCardInvoice";
 
 export async function getFinanceOverview(userId: string) {
   await connectToDatabase();
+  await ensureDefaultCategories(userId);
 
   const [accounts, transactions, recurringRules, savingsPots, goals] =
     await Promise.all([
       BankAccount.find({ userId, isArchived: false }).sort({ createdAt: -1 }),
-      Transaction.find({ userId }).sort({ occurredAt: -1 }).limit(100),
+      Transaction.find({ userId }).sort({ occurredAt: -1 }).limit(500),
       RecurringRule.find({ userId, isActive: true }).sort({ type: 1, title: 1 }),
       SavingsPot.find({ userId }).sort({ priority: 1 }),
       FinancialGoal.find({ userId }).sort({ status: 1, dueDate: 1 }),
@@ -29,8 +34,17 @@ export async function getFinanceOverview(userId: string) {
   const transactionInputs = plainTransactions.map((transaction) => ({
     amount: Number(transaction.amount),
     type: transaction.type as "income" | "expense",
-    status: transaction.status as "planned" | "confirmed" | "late" | "cancelled",
+    status: transaction.status as
+      | "planned"
+      | "scheduled"
+      | "confirmed"
+      | "late"
+      | "cancelled",
     occurredAt: String(transaction.occurredAt),
+    category: String(transaction.category ?? "Outro"),
+    bankAccountId: transaction.bankAccountId
+      ? String(transaction.bankAccountId)
+      : undefined,
     recurringRuleId: transaction.recurringRuleId
       ? String(transaction.recurringRuleId)
       : undefined,
@@ -44,7 +58,9 @@ export async function getFinanceOverview(userId: string) {
     amount: Number(rule.amount),
     type: rule.type as "income" | "expense",
     category: String(rule.category),
-    cadence: rule.cadence as "weekly" | "monthly",
+    cadence: rule.cadence as "weekly" | "monthly" | "biweekly" | "yearly" | "custom",
+    intervalDays:
+      rule.intervalDays === undefined ? undefined : Number(rule.intervalDays),
     dayOfWeek:
       rule.dayOfWeek === undefined ? undefined : Number(rule.dayOfWeek),
     dayOfMonth:
@@ -138,6 +154,50 @@ export async function getFinanceOverview(userId: string) {
     })
     .sort((a, b) => b.amount - a.amount);
 
+  const monthKey = format(now, "yyyy-MM");
+  const [financeAlerts, netWorthSeries] = await Promise.all([
+    buildFinanceAlerts(userId, forecast, monthKey).catch(() => []),
+    getNetWorthSeries(userId, 180).catch(() => []),
+  ]);
+
+  const creditAccounts = accounts.filter((a) => a.type === "credit");
+  const invoiceSummaries: {
+    accountId: string;
+    accountName: string;
+    invoiceId: string;
+    dueDate: string;
+    remaining: number;
+    status: string;
+  }[] = [];
+  if (creditAccounts.length) {
+    const invs = await CreditCardInvoice.find({
+      userId,
+      bankAccountId: { $in: creditAccounts.map((a) => a._id) },
+      status: { $in: ["open", "partial", "late"] },
+    })
+      .sort({ dueDate: 1 })
+      .lean();
+    const seenAcc = new Set<string>();
+    const accById = new Map(creditAccounts.map((a) => [String(a._id), a] as const));
+    for (const inv of invs) {
+      const accId = String(inv.bankAccountId);
+      if (seenAcc.has(accId)) continue;
+      seenAcc.add(accId);
+      const acc = accById.get(accId);
+      if (!acc) continue;
+      invoiceSummaries.push({
+        accountId: accId,
+        accountName: acc.name,
+        invoiceId: String(inv._id),
+        dueDate:
+          inv.dueDate instanceof Date
+            ? inv.dueDate.toISOString()
+            : String(inv.dueDate),
+        remaining: Number(inv.total) - Number(inv.paidAmount),
+        status: String(inv.status),
+      });
+    }
+  }
   return {
     accounts: serializeDocuments(accounts),
     transactions: plainTransactions,
@@ -157,15 +217,19 @@ export async function getFinanceOverview(userId: string) {
       (total, account) => total + Number(account.balance ?? 0),
       0,
     ),
+    financeAlerts: serializeDocuments(financeAlerts),
+    netWorthSeries,
+    invoiceSummaries,
   };
 }
 
 /** Livre para gastar por mês (`YYYY-MM`), mesma base de forecast do dashboard. */
 export async function getFreeToSpendForMonthKeys(userId: string, monthKeys: string[]) {
   await connectToDatabase();
+  await ensureDefaultCategories(userId);
 
   const [transactions, recurringRules] = await Promise.all([
-    Transaction.find({ userId }).sort({ occurredAt: -1 }).limit(100),
+    Transaction.find({ userId }).sort({ occurredAt: -1 }).limit(500),
     RecurringRule.find({ userId, isActive: true }).sort({ type: 1, title: 1 }),
   ]);
 
@@ -174,8 +238,17 @@ export async function getFreeToSpendForMonthKeys(userId: string, monthKeys: stri
   const transactionInputs = plainTransactions.map((transaction) => ({
     amount: Number(transaction.amount),
     type: transaction.type as "income" | "expense",
-    status: transaction.status as "planned" | "confirmed" | "late" | "cancelled",
+    status: transaction.status as
+      | "planned"
+      | "scheduled"
+      | "confirmed"
+      | "late"
+      | "cancelled",
     occurredAt: String(transaction.occurredAt),
+    category: String(transaction.category ?? "Outro"),
+    bankAccountId: transaction.bankAccountId
+      ? String(transaction.bankAccountId)
+      : undefined,
     recurringRuleId: transaction.recurringRuleId
       ? String(transaction.recurringRuleId)
       : undefined,
@@ -189,7 +262,9 @@ export async function getFreeToSpendForMonthKeys(userId: string, monthKeys: stri
     amount: Number(rule.amount),
     type: rule.type as "income" | "expense",
     category: String(rule.category),
-    cadence: rule.cadence as "weekly" | "monthly",
+    cadence: rule.cadence as "weekly" | "monthly" | "biweekly" | "yearly" | "custom",
+    intervalDays:
+      rule.intervalDays === undefined ? undefined : Number(rule.intervalDays),
     dayOfWeek:
       rule.dayOfWeek === undefined ? undefined : Number(rule.dayOfWeek),
     dayOfMonth:

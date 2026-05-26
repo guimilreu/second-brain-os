@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, startTransition } from "react";
 import axios from "axios";
 import { toast } from "sonner";
 import { Pencil, PiggyBank, Plus, Trash2 } from "lucide-react";
 import { SavingsPotDialog } from "@/features/finance/components/dialogs/SavingsPotDialog";
+import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/utils/format";
 
 type SavingsPot = {
@@ -14,6 +15,7 @@ type SavingsPot = {
   currentAmount: number;
   color: string;
   priority: number;
+  bankAccountId?: string;
 };
 
 export function SavingsPotsSection() {
@@ -23,13 +25,21 @@ export function SavingsPotsSection() {
   const [editing, setEditing] = useState<SavingsPot | null>(null);
 
   const fetch = useCallback(async () => {
-    const res = await axios.get<{ data: SavingsPot[] }>("/api/finance/savings-pots");
-    setPots(res.data.data);
-    setLoading(false);
+    try {
+      const res = await axios.get<{ data: SavingsPot[] }>("/api/finance/savings-pots");
+      setPots(res.data.data);
+    } catch {
+      toast.error("Não foi possível carregar cofrinhos.");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { void fetch(); }, [fetch]);
+  useEffect(() => {
+    startTransition(() => {
+      void fetch();
+    });
+  }, [fetch]);
 
   async function handleDelete(id: string) {
     if (!confirm("Remover este cofrinho?")) return;
@@ -54,23 +64,23 @@ export function SavingsPotsSection() {
             {formatCurrency(totalSaved)} guardados de {formatCurrency(totalTarget)} em metas
           </p>
         </div>
-        <button
+        <Button
           onClick={() => { setEditing(null); setDialogOpen(true); }}
-          className="inline-flex items-center gap-2 rounded-2xl bg-brand px-4 py-2.5 text-sm font-medium text-primary-foreground transition hover:opacity-90"
+          className="rounded-2xl"
         >
           <Plus className="h-4 w-4" />
           Novo cofrinho
-        </button>
+        </Button>
       </div>
 
       {loading ? (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="glass-surface h-40 animate-pulse rounded-3xl" />
+            <div key={i} className="h-40 animate-pulse rounded-3xl border border-border bg-card" />
           ))}
         </div>
       ) : pots.length === 0 ? (
-        <div className="glass-surface flex flex-col items-center gap-4 rounded-3xl py-16 text-center">
+        <div className="flex flex-col items-center gap-4 rounded-3xl border border-dashed border-border bg-card py-16 text-center shadow-paper-sm">
           <div className="rounded-3xl bg-brand-soft p-4 text-brand">
             <PiggyBank className="h-8 w-8" />
           </div>
@@ -90,20 +100,28 @@ export function SavingsPotsSection() {
                 : 0;
 
             return (
-              <div key={pot.id} className="glass-surface group relative rounded-3xl p-5">
-                <div className="absolute right-4 top-4 flex gap-1 opacity-0 transition group-hover:opacity-100">
-                  <button
+              <div key={pot.id} className="paper-note interactive-card group relative rounded-3xl p-5">
+                <div className="absolute right-4 top-4 flex gap-1">
+                  <Button
+                    type="button"
+                    size="icon-sm"
+                    variant="outline"
                     onClick={() => { setEditing(pot); setDialogOpen(true); }}
-                    className="rounded-xl bg-surface-soft p-2 text-muted-foreground transition hover:text-foreground"
+                    className="rounded-xl"
+                    aria-label="Editar cofrinho"
                   >
                     <Pencil className="h-3.5 w-3.5" />
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    type="button"
+                    size="icon-sm"
+                    variant="outline"
                     onClick={() => handleDelete(pot.id)}
-                    className="rounded-xl bg-surface-soft p-2 text-muted-foreground transition hover:text-danger"
+                    className="rounded-xl hover:text-danger"
+                    aria-label="Remover cofrinho"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+                  </Button>
                 </div>
                 <div
                   className="inline-flex rounded-2xl p-3"

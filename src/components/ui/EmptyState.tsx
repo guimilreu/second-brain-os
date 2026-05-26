@@ -27,7 +27,7 @@ export function EmptyState({
       initial={{ opacity: 0, y: 12, scale: 0.988 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={reduce ? { duration: 0.15 } : springUI}
-      className="flex flex-col items-center gap-4 rounded-3xl border border-dashed border-border bg-default-50/60 px-6 py-14 text-center dark:border-default-200 dark:bg-default-50/20"
+      className="flex flex-col items-center gap-4 rounded-[1.75rem] border border-dashed border-border bg-paper/60 px-6 py-12 text-center dark:border-default-200 dark:bg-default-50/20"
     >
       <motion.div
         initial={reduce ? false : { scale: 0.92 }}

@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, startTransition } from "react";
 import axios from "axios";
 import { toast } from "sonner";
 import { Modal } from "@/components/ui/Modal";
-import { ColorSwatch, FormActions, FormField, Input } from "@/components/ui/FormField";
+import { ColorSwatch, FormActions, FormField, Input, Select } from "@/components/ui/FormField";
 
 type SavingsPot = {
   id: string;
@@ -13,7 +13,10 @@ type SavingsPot = {
   currentAmount: number;
   color: string;
   priority: number;
+  bankAccountId?: string;
 };
+
+type Account = { id: string; name: string; type: string };
 
 type SavingsPotDialogProps = {
   open: boolean;
@@ -24,13 +27,40 @@ type SavingsPotDialogProps = {
 
 function makeInitial(pot?: SavingsPot | null) {
   return pot
-    ? { name: pot.name, targetAmount: pot.targetAmount, currentAmount: pot.currentAmount, color: pot.color, priority: pot.priority }
-    : { name: "", targetAmount: 0, currentAmount: 0, color: "#22c55e", priority: 1 };
+    ? {
+        bankAccountId: pot.bankAccountId ?? "",
+        name: pot.name,
+        targetAmount: pot.targetAmount,
+        currentAmount: pot.currentAmount,
+        color: pot.color,
+        priority: pot.priority,
+      }
+    : {
+        bankAccountId: "",
+        name: "",
+        targetAmount: 0,
+        currentAmount: 0,
+        color: "#22c55e",
+        priority: 1,
+      };
 }
 
 export function SavingsPotDialog({ open, onClose, pot, onSaved }: SavingsPotDialogProps) {
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const [form, setForm] = useState(() => makeInitial(pot));
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    void axios.get<{ data: Account[] }>("/api/finance/accounts").then((res) => {
+      startTransition(() => {
+        setAccounts(res.data.data);
+      });
+    });
+    startTransition(() => {
+      setForm(makeInitial(pot));
+    });
+  }, [open, pot]);
 
   type FormKey = keyof ReturnType<typeof makeInitial>;
   function set(key: FormKey, value: string | number) {
@@ -39,9 +69,17 @@ export function SavingsPotDialog({ open, onClose, pot, onSaved }: SavingsPotDial
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!form.bankAccountId) {
+      toast.error("Selecione a conta do cofrinho.");
+      return;
+    }
     setSaving(true);
     try {
-      const payload = { ...form, targetAmount: Number(form.targetAmount) };
+      const payload = {
+        ...form,
+        targetAmount: Number(form.targetAmount),
+        currentAmount: Number(form.currentAmount),
+      };
       if (pot?.id) {
         await axios.patch(`/api/finance/savings-pots/${pot.id}`, payload);
         toast.success("Cofrinho atualizado.");
@@ -60,8 +98,20 @@ export function SavingsPotDialog({ open, onClose, pot, onSaved }: SavingsPotDial
   return (
     <Modal open={open} onClose={onClose}
       title={pot ? "Editar cofrinho" : "Novo cofrinho"}
-      description="Reserve uma parte da sua renda para objetivos específicos">
+      description="Cada cofrinho fica atrelado a uma conta (ex.: Mercado Pago).">
       <form onSubmit={handleSubmit} className="space-y-4">
+        <FormField label="Conta">
+          <Select
+            required
+            value={form.bankAccountId}
+            onChange={(e) => set("bankAccountId", e.target.value)}
+          >
+            <option value="">Selecione a conta</option>
+            {accounts.filter((a) => a.type !== "credit").map((a) => (
+              <option key={a.id} value={a.id}>{a.name}</option>
+            ))}
+          </Select>
+        </FormField>
         <FormField label="Nome">
           <Input required value={form.name}
             onChange={(e) => set("name", e.target.value)} placeholder="Ex: Viagem Europa" />
