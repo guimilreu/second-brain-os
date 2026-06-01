@@ -21,6 +21,10 @@ export const wishlistItemCreateSchema = z.object({
   estimatedPrice: z.coerce.number().min(0).default(0),
   actualPrice: z.coerce.number().min(0).optional(),
   purchasedAt: z.coerce.date().optional(),
+  savingsPotId: z.string().optional(),
+  financialGoalId: z.string().optional(),
+  transactionId: z.string().optional(),
+  installmentPlanId: z.string().optional(),
 });
 
 export const wishlistItemPatchSchema = wishlistItemCreateSchema.partial();

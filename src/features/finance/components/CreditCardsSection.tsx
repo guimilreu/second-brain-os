@@ -5,6 +5,9 @@ import axios from "axios";
 import { toast } from "sonner";
 import { CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { ContentReveal } from "@/components/motion/ContentReveal";
+import { StaggerItem, StaggerList } from "@/components/motion/StaggerList";
 import { Modal } from "@/components/ui/Modal";
 import { FormActions, FormField, Input, Select } from "@/components/ui/FormField";
 import { formatCurrency } from "@/lib/utils/format";
@@ -123,39 +126,28 @@ export function CreditCardsSection() {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="grid gap-4 md:grid-cols-2">
-        {[1, 2].map((i) => (
-          <div key={i} className="h-44 animate-pulse rounded-3xl border border-border bg-card" />
-        ))}
-      </div>
-    );
-  }
-  if (cards.length === 0) {
-    return (
-      <div className="rounded-3xl border border-dashed border-border bg-card p-8 text-center shadow-paper-sm">
-        <div className="mx-auto mb-4 inline-flex rounded-3xl bg-brand-soft p-4 text-brand">
-          <CreditCard className="h-8 w-8" />
-        </div>
-        <p className="font-semibold">Nenhum cartão cadastrado</p>
-        <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
-          Crie uma conta do tipo &quot;Cartão de crédito&quot; com fechamento e vencimento
-          para acompanhar faturas aqui.
-        </p>
-      </div>
-    );
-  }
-
   return (
     <>
-      <div className="grid gap-4 md:grid-cols-2">
-        {cards.map((card) => {
-          const inv = openByCard[card.id];
-          const due = inv?.dueDate ? new Date(inv.dueDate) : null;
-          const remaining = inv ? Number(inv.total) - Number(inv.paidAmount) : 0;
-          return (
-            <div key={card.id} className="rounded-3xl border border-border bg-card p-5 shadow-paper-sm">
+      <ContentReveal
+        loading={loading}
+        skeleton="card"
+        count={2}
+        skeletonClassName="grid gap-4 md:grid-cols-2"
+      >
+        {cards.length === 0 ? (
+          <EmptyState
+            icon={CreditCard}
+            title="Nenhum cartão cadastrado"
+            description='Crie uma conta do tipo "Cartão de crédito" com fechamento e vencimento para acompanhar faturas aqui.'
+          />
+        ) : (
+          <StaggerList className="grid gap-4 md:grid-cols-2">
+            {cards.map((card) => {
+              const inv = openByCard[card.id];
+              const due = inv?.dueDate ? new Date(inv.dueDate) : null;
+              const remaining = inv ? Number(inv.total) - Number(inv.paidAmount) : 0;
+              return (
+                <StaggerItem key={card.id} className="rounded-3xl border border-border bg-card p-5 shadow-paper-sm">
               <div className="flex items-start gap-3">
                 <div className="rounded-2xl bg-brand-soft p-3 text-brand">
                   <CreditCard className="h-5 w-5" />
@@ -192,10 +184,12 @@ export function CreditCardsSection() {
               >
                 Pagar fatura
               </Button>
-            </div>
-          );
-        })}
-      </div>
+                </StaggerItem>
+              );
+            })}
+          </StaggerList>
+        )}
+      </ContentReveal>
 
       <Modal open={payOpen} onClose={() => setPayOpen(false)} title="Pagamento de fatura">
         <form onSubmit={(e) => void submitPayment(e)} className="space-y-4">

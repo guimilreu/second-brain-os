@@ -6,6 +6,7 @@ import axios from "axios";
 import { toast } from "sonner";
 import { Modal } from "@/components/ui/Modal";
 import { FormActions, FormField, Input, Select } from "@/components/ui/FormField";
+import { useFinanceCategories } from "@/hooks/use-finance-categories";
 
 type SavingsPot = { id: string; name: string };
 
@@ -32,12 +33,6 @@ type RecurringRuleDialogProps = {
   pots: SavingsPot[];
   onSaved: () => void;
 };
-
-const CATEGORIES = [
-  "Alimentação", "Moradia", "Transporte", "Saúde", "Educação",
-  "Lazer", "Roupas", "Tecnologia", "Assinatura", "Freelance",
-  "Salário", "Investimento", "Transferência", "Outro",
-];
 
 const DAYS_OF_WEEK = [
   { value: 0, label: "Domingo" }, { value: 1, label: "Segunda-feira" },
@@ -67,6 +62,7 @@ function makeInitial(rule?: RecurringRule | null) {
 }
 
 export function RecurringRuleDialog({ open, onClose, rule, pots, onSaved }: RecurringRuleDialogProps) {
+  const { categories } = useFinanceCategories();
   const [form, setForm] = useState(() => makeInitial(rule));
   const [saving, setSaving] = useState(false);
 
@@ -137,7 +133,7 @@ export function RecurringRuleDialog({ open, onClose, rule, pots, onSaved }: Recu
           </FormField>
           <FormField label="Categoria">
             <Select value={form.category} onChange={(e) => set("category", e.target.value)}>
-              {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+              {categories.map((c) => <option key={c} value={c}>{c}</option>)}
             </Select>
           </FormField>
           <FormField label="Frequência">

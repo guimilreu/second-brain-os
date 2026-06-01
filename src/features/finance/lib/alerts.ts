@@ -1,17 +1,25 @@
 import { subMonths, startOfMonth, endOfMonth } from "date-fns";
 import { getBudgetUsage } from "@/features/finance/lib/budgets";
+import { monthlyNeed } from "@/features/finance/lib/goalFunding";
 import type { FinanceForecast } from "@/features/finance/lib/forecast";
 import { connectToDatabase } from "@/lib/db/mongodb";
 import { BankAccount } from "@/models/BankAccount";
 import { CreditCardInvoice } from "@/models/CreditCardInvoice";
 import { FinanceAlert } from "@/models/FinanceAlert";
+import { FinancialGoal } from "@/models/FinancialGoal";
 import { SavingsPot } from "@/models/SavingsPot";
 import { Transaction } from "@/models/Transaction";
+
+export type FinanceAlertContext = {
+  wishlistPlannedTotal?: number;
+  freeToSpend?: number;
+};
 
 export async function buildFinanceAlerts(
   userId: string,
   forecast: FinanceForecast,
   monthKey: string,
+  context?: FinanceAlertContext,
 ) {
   await connectToDatabase();
   const pending = await FinanceAlert.find({
@@ -27,9 +35,60 @@ export async function buildFinanceAlerts(
   }
 
   const alerts: Array<{
-    kind: "low-balance" | "invoice-due" | "budget-exceeded" | "goal-milestone" | "recurring-late" | "unusual-spending";
+    kind:
+      | "low-balance"
+      | "invoice-due"
+      | "budget-exceeded"
+      | "goal-milestone"
+      | "recurring-late"
+      | "unusual-spending"
+      | "wishlist-over-free"
+      | "goal-funding-gap";
     payload: Record<string, unknown>;
   }> = [];
+
+  const freeToSpend = context?.freeToSpend ?? forecast.freeToSpend;
+  const wishlistPlanned = context?.wishlistPlannedTotal ?? 0;
+  if (wishlistPlanned > 0 && wishlistPlanned > freeToSpend) {
+    alerts.push({
+      kind: "wishlist-over-free",
+      payload: {
+        monthKey,
+        planned: wishlistPlanned,
+        freeToSpend,
+        gap: wishlistPlanned - freeToSpend,
+      },
+    });
+  }
+
+  const activeGoals = await FinancialGoal.find({
+    userId,
+    status: "active",
+    dueDate: { $exists: true, $ne: null },
+  });
+  for (const goal of activeGoals) {
+    const need = monthlyNeed({
+      targetAmount: Number(goal.targetAmount),
+      currentAmount: Number(goal.currentAmount),
+      dueDate: goal.dueDate,
+      status: goal.status,
+    });
+    if (need !== null && need > 0) {
+      alerts.push({
+        kind: "goal-funding-gap",
+        payload: {
+          goalId: String(goal._id),
+          name: goal.name,
+          monthlyNeed: need,
+          remaining: Math.max(
+            0,
+            Number(goal.targetAmount) - Number(goal.currentAmount),
+          ),
+          dueDate: goal.dueDate,
+        },
+      });
+    }
+  }
 
   const accounts = await BankAccount.find({ userId, isArchived: false });
   for (const acc of accounts) {

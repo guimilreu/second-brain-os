@@ -53,6 +53,8 @@ const TransactionSchema = new Schema(
     includeInAccountBalance: { type: Boolean, default: true },
     reconciled: { type: Boolean, default: false },
     currency: { type: String, default: "BRL", uppercase: true, trim: true },
+    wishlistItemId: { type: Schema.Types.ObjectId, ref: "WishlistItem" },
+    projectId: { type: Schema.Types.ObjectId, ref: "Project" },
   },
   { timestamps: true },
 );

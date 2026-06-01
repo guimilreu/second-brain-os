@@ -88,6 +88,8 @@ export const transactionSchema = z.object({
     .default([]),
   externalId: z.string().optional(),
   importBatchId: z.string().optional(),
+  wishlistItemId: z.string().optional(),
+  projectId: z.string().optional(),
 });
 
 export const transactionPatchSchema = transactionSchema.partial();

@@ -6,7 +6,11 @@ import { toast } from "sonner";
 import { Landmark, Pencil, Plus, Trash2, Wallet, ArrowRightLeft } from "lucide-react";
 import { AccountDialog } from "@/features/finance/components/dialogs/AccountDialog";
 import { TransferDialog } from "@/features/finance/components/dialogs/TransferDialog";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { ContentReveal } from "@/components/motion/ContentReveal";
+import { StaggerItem, StaggerList } from "@/components/motion/StaggerList";
 import { formatCurrency } from "@/lib/utils/format";
 import { cn } from "@/lib/utils/cn";
 
@@ -42,6 +46,7 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 export function AccountsSection() {
+  const confirm = useConfirm();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [pots, setPots] = useState<Pot[]>([]);
   const [loading, setLoading] = useState(true);
@@ -72,7 +77,13 @@ export function AccountsSection() {
   }, [fetch]);
 
   async function handleDelete(id: string) {
-    if (!confirm("Remover esta conta?")) return;
+    const ok = await confirm({
+      title: "Remover conta?",
+      description: "Transações vinculadas podem ficar órfãs.",
+      destructive: true,
+      confirmLabel: "Remover",
+    });
+    if (!ok) return;
     try {
       await axios.delete(`/api/finance/accounts/${id}`);
       toast.success("Conta removida.");
@@ -127,30 +138,22 @@ export function AccountsSection() {
         </div>
       </div>
 
-      {loading ? (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-40 animate-pulse rounded-3xl border border-border bg-card" />
-          ))}
-        </div>
-      ) : accounts.length === 0 ? (
-        <div className="flex flex-col items-center gap-4 rounded-3xl border border-dashed border-border bg-card py-16 text-center shadow-paper-sm">
-          <div className="rounded-3xl bg-brand-soft p-4 text-brand">
-            <Landmark className="h-8 w-8" />
-          </div>
-          <div>
-            <p className="font-semibold">Nenhuma conta cadastrada</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Adicione seus bancos e carteiras para acompanhar seus saldos.
-            </p>
-          </div>
-          <Button onClick={openCreate} className="rounded-2xl">
-            <Plus className="h-4 w-4" />
-            Adicionar conta
-          </Button>
-        </div>
+      <ContentReveal
+        loading={loading}
+        skeleton="card"
+        count={3}
+        skeletonClassName="grid gap-4 md:grid-cols-2 xl:grid-cols-3"
+      >
+        {accounts.length === 0 ? (
+        <EmptyState
+          icon={Landmark}
+          title="Nenhuma conta cadastrada"
+          description="Adicione seus bancos e carteiras para acompanhar seus saldos."
+          actionLabel="Adicionar conta"
+          onAction={openCreate}
+        />
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <StaggerList className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {accounts.map((account) => {
             const accPots = potsByAccount(account.id);
             const free =
@@ -163,7 +166,7 @@ export function AccountsSection() {
                 ? Math.min((pot.currentAmount / pot.targetAmount) * 100, 100)
                 : 0;
             return (
-              <div key={account.id} className="paper-note interactive-card group relative rounded-3xl p-5">
+              <StaggerItem key={account.id} className="paper-note interactive-card group relative rounded-3xl p-5">
                 <div className="flex items-start justify-between gap-4">
                   <div
                     className="rounded-2xl p-3"
@@ -251,11 +254,12 @@ export function AccountsSection() {
                     ))}
                   </div>
                 )}
-              </div>
+              </StaggerItem>
             );
           })}
-        </div>
+        </StaggerList>
       )}
+      </ContentReveal>
 
       <AccountDialog
         key={editing?.id ?? "new"}

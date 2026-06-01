@@ -67,6 +67,21 @@ export async function PATCH(
         $set.actualPrice = Number(actualPriceRaw);
         $set.purchasedAt =
           parsed.purchasedAt !== undefined ? parsed.purchasedAt : existing.purchasedAt ?? new Date();
+        $set.lane = "archive";
+      }
+      if (status === "cancelled") {
+        $set.lane = "archive";
+      }
+    }
+
+    for (const refKey of [
+      "savingsPotId",
+      "financialGoalId",
+      "transactionId",
+      "installmentPlanId",
+    ] as const) {
+      if (parsed[refKey] !== undefined) {
+        $set[refKey] = parsed[refKey] || null;
       }
     }
 

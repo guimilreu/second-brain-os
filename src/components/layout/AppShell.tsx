@@ -1,6 +1,8 @@
 import { Sidebar } from "@/components/layout/Sidebar";
 import { PageTransition } from "@/components/layout/PageTransition";
 import { QuickActions } from "@/components/layout/QuickActions";
+import { GlobalActions } from "@/components/layout/GlobalActions";
+import { CommandPalette } from "@/features/search/components/CommandPalette";
 
 type AppShellProps = {
   children: React.ReactNode;
@@ -17,6 +19,8 @@ export function AppShell({ children, userName }: AppShellProps) {
         </div>
       </main>
       <QuickActions />
+      <GlobalActions />
+      <CommandPalette />
     </div>
   );
 }

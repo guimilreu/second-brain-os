@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState, startTransition } from "react";
 import axios from "axios";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { FormField, Input } from "@/components/ui/FormField";
+import { ContentReveal } from "@/components/motion/ContentReveal";
+import { FormField, Input, Select } from "@/components/ui/FormField";
 import { formatCurrency } from "@/lib/utils/format";
 
 type ScenarioPlan = { id: string; name: string; horizonMonths: number; updatedAt?: string };
@@ -14,10 +15,20 @@ type SimPoint = {
   scenarioFreeToSpend: number;
 };
 
+type AssumptionKind =
+  | "add-expense"
+  | "add-one-time-expense"
+  | "add-wishlist-month"
+  | "delay-purchase";
+
 export function ScenariosSection() {
   const [plans, setPlans] = useState<ScenarioPlan[]>([]);
   const [name, setName] = useState("Plano B");
+  const [assumptionKind, setAssumptionKind] = useState<AssumptionKind>("add-expense");
   const [extraExpense, setExtraExpense] = useState("500");
+  const [oneTimeMonthOffset, setOneTimeMonthOffset] = useState("0");
+  const [delayFromMonth, setDelayFromMonth] = useState("0");
+  const [delayToMonth, setDelayToMonth] = useState("1");
   const [months, setMonths] = useState("12");
   const [projection, setProjection] = useState<SimPoint[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -39,11 +50,46 @@ export function ScenariosSection() {
     });
   }, [load]);
 
+  function buildAssumptionPayload(amt: number): Record<string, unknown> {
+    switch (assumptionKind) {
+      case "add-expense":
+        return {
+          title: "Despesa extra (cenário)",
+          amount: amt,
+          category: "Outro",
+        };
+      case "add-one-time-expense":
+        return {
+          title: "Despesa única (cenário)",
+          amount: amt,
+          category: "Outro",
+          monthOffset: Math.max(0, Number(oneTimeMonthOffset) || 0),
+        };
+      case "add-wishlist-month":
+        return {
+          title: "Compras planejadas (wishlist)",
+          amount: amt,
+          category: "Compras",
+          monthOffset: Math.max(0, Number(oneTimeMonthOffset) || 0),
+        };
+      case "delay-purchase":
+        return {
+          title: "Compra adiada",
+          amount: amt,
+          category: "Compras",
+          fromMonthOffset: Math.max(0, Number(delayFromMonth) || 0),
+          toMonthOffset: Math.max(0, Number(delayToMonth) || 1),
+        };
+      default:
+        return { amount: amt };
+    }
+  }
+
   async function simulate(e: React.FormEvent) {
     e.preventDefault();
     const amt = Number(extraExpense);
     if (!name.trim() || Number.isNaN(amt) || amt <= 0) {
-      toast.error("Preencha nome e valor da despesa extra (maior que zero).");
+      toast.error("Preencha nome e valor (maior que zero).");
       return;
     }
     try {
@@ -54,12 +100,8 @@ export function ScenariosSection() {
           horizonMonths: Math.min(60, Math.max(1, Number(months) || 12)),
           assumptions: [
             {
-              kind: "add-expense",
-              payload: {
-                title: "Despesa extra (cenário)",
-                amount: amt,
-                category: "Outro",
-              },
+              kind: assumptionKind,
+              payload: buildAssumptionPayload(amt),
             },
           ],
         },
@@ -72,18 +114,23 @@ export function ScenariosSection() {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="grid gap-4 lg:grid-cols-2">
-        {[1, 2].map((i) => (
-          <div key={i} className="h-44 animate-pulse rounded-3xl border border-border bg-card" />
-        ))}
-      </div>
-    );
-  }
+  const amountLabel =
+    assumptionKind === "add-expense"
+      ? "Despesa extra / mês (R$)"
+      : assumptionKind === "delay-purchase"
+        ? "Valor da compra (R$)"
+        : assumptionKind === "add-wishlist-month"
+          ? "Total wishlist no mês (R$)"
+          : "Despesa única (R$)";
 
   return (
-    <div className="space-y-6">
+    <ContentReveal
+      loading={loading}
+      skeleton="card"
+      count={2}
+      skeletonClassName="grid gap-4 lg:grid-cols-2"
+    >
+      <div className="space-y-6">
       <form
         onSubmit={(ev) => void simulate(ev)}
         className="rounded-3xl border border-border bg-card p-6 shadow-paper-sm"
@@ -93,14 +140,25 @@ export function ScenariosSection() {
         </p>
         <h2 className="mt-1 text-2xl font-semibold tracking-tight">Simular impacto mensal</h2>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">
-          Simule o impacto de uma <strong>despesa recorrente mensal extra</strong> no
-          &quot;livre para gastar&quot; dos próximos meses (base: suas recorrências atuais).
+          Simule despesas recorrentes, compras únicas, impacto da wishlist em um mês ou adiar uma
+          compra para outro mês no &quot;livre para gastar&quot;.
         </p>
-        <div className="mt-5 grid gap-4 sm:grid-cols-3">
+        <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <FormField label="Nome do cenário">
             <Input value={name} onChange={(e) => setName(e.target.value)} />
           </FormField>
-          <FormField label="Despesa extra / mês (R$)">
+          <FormField label="Tipo de premissa">
+            <Select
+              value={assumptionKind}
+              onChange={(e) => setAssumptionKind(e.target.value as AssumptionKind)}
+            >
+              <option value="add-expense">Despesa mensal recorrente</option>
+              <option value="add-one-time-expense">Despesa única (um mês)</option>
+              <option value="add-wishlist-month">Wishlist em um mês</option>
+              <option value="delay-purchase">Adiar compra de um mês para outro</option>
+            </Select>
+          </FormField>
+          <FormField label={amountLabel}>
             <Input
               type="number"
               min={0}
@@ -109,16 +167,75 @@ export function ScenariosSection() {
               onChange={(e) => setExtraExpense(e.target.value)}
             />
           </FormField>
-          <FormField label="Horizonte (meses)">
-            <Input
-              type="number"
-              min={1}
-              max={60}
-              value={months}
-              onChange={(e) => setMonths(e.target.value)}
-            />
-          </FormField>
+          {assumptionKind === "delay-purchase" ? (
+            <>
+              <FormField label="Mês original (0 = atual)">
+                <Input
+                  type="number"
+                  min={0}
+                  max={59}
+                  value={delayFromMonth}
+                  onChange={(e) => setDelayFromMonth(e.target.value)}
+                />
+              </FormField>
+              <FormField label="Adiar para mês">
+                <Input
+                  type="number"
+                  min={0}
+                  max={59}
+                  value={delayToMonth}
+                  onChange={(e) => setDelayToMonth(e.target.value)}
+                />
+              </FormField>
+            </>
+          ) : assumptionKind === "add-one-time-expense" ||
+            assumptionKind === "add-wishlist-month" ? (
+            <FormField label="Mês da despesa (0 = atual)">
+              <Input
+                type="number"
+                min={0}
+                max={59}
+                value={oneTimeMonthOffset}
+                onChange={(e) => setOneTimeMonthOffset(e.target.value)}
+              />
+            </FormField>
+          ) : (
+            <FormField label="Horizonte (meses)">
+              <Input
+                type="number"
+                min={1}
+                max={60}
+                value={months}
+                onChange={(e) => setMonths(e.target.value)}
+              />
+            </FormField>
+          )}
         </div>
+        {assumptionKind === "add-expense" ? null : assumptionKind === "delay-purchase" ? (
+          <div className="mt-4 max-w-xs">
+            <FormField label="Horizonte (meses)">
+              <Input
+                type="number"
+                min={1}
+                max={60}
+                value={months}
+                onChange={(e) => setMonths(e.target.value)}
+              />
+            </FormField>
+          </div>
+        ) : (
+          <div className="mt-4 max-w-xs">
+            <FormField label="Horizonte (meses)">
+              <Input
+                type="number"
+                min={1}
+                max={60}
+                value={months}
+                onChange={(e) => setMonths(e.target.value)}
+              />
+            </FormField>
+          </div>
+        )}
         <Button type="submit" className="mt-4 rounded-2xl">
           Simular e salvar plano
         </Button>
@@ -163,6 +280,7 @@ export function ScenariosSection() {
           )}
         </div>
       </div>
-    </div>
+      </div>
+    </ContentReveal>
   );
 }

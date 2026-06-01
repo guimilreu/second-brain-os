@@ -20,6 +20,11 @@ const TaskSchema = new Schema(
     },
     plannedFor: { type: Date },
     completedAt: { type: Date },
+    estimatedCost: { type: Number, min: 0 },
+    relatedWishlistItemId: { type: Schema.Types.ObjectId, ref: "WishlistItem" },
+    relatedGoalId: { type: Schema.Types.ObjectId, ref: "FinancialGoal" },
+    relatedSavingsPotId: { type: Schema.Types.ObjectId, ref: "SavingsPot" },
+    relatedNoteId: { type: Schema.Types.ObjectId, ref: "Note" },
   },
   { timestamps: true },
 );

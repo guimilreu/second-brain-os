@@ -1,8 +1,10 @@
+import { Suspense } from "react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Reveal } from "@/components/motion/Reveal";
 import { FinanceTabs } from "@/features/finance/components/FinanceTabs";
 import { getFinanceOverview } from "@/features/finance/lib/data";
 import { requireCurrentUser } from "@/lib/auth/current-user";
+import AppLoading from "../loading";
 
 export const metadata = {
   title: "Financeiro",
@@ -36,12 +38,14 @@ export default async function FinancePage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Financeiro"
-        title="Dinheiro sob controle — presente, passado e futuro."
-        description="Contas, entradas, saídas, recorrências, cofrinhos e metas em um só lugar."
+        eyebrow="Dinheiro"
+        title="Seu dinheiro — hoje, movimentos e patrimônio."
+        description="Três zonas simples. Toda a profundidade quando você precisar."
       />
       <Reveal delay={0.03}>
-        <FinanceTabs overviewData={clientData} />
+        <Suspense fallback={<AppLoading />}>
+          <FinanceTabs overviewData={clientData} />
+        </Suspense>
       </Reveal>
     </div>
   );

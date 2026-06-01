@@ -6,8 +6,13 @@ import { ptBR } from "date-fns/locale";
 import axios from "axios";
 import { toast } from "sonner";
 import { Pencil, Plus, Target, Trash2 } from "lucide-react";
+import { monthlyNeed } from "@/features/finance/lib/goalFunding";
 import { GoalDialog } from "@/features/finance/components/dialogs/GoalDialog";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { ContentReveal } from "@/components/motion/ContentReveal";
+import { StaggerItem, StaggerList } from "@/components/motion/StaggerList";
 import { formatCurrency } from "@/lib/utils/format";
 import { cn } from "@/lib/utils/cn";
 
@@ -34,6 +39,7 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 export function GoalsSection() {
+  const confirm = useConfirm();
   const [goals, setGoals] = useState<Goal[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -57,7 +63,12 @@ export function GoalsSection() {
   }, [fetch]);
 
   async function handleDelete(id: string) {
-    if (!confirm("Remover esta meta?")) return;
+    const ok = await confirm({
+      title: "Remover meta?",
+      destructive: true,
+      confirmLabel: "Remover",
+    });
+    if (!ok) return;
     try {
       await axios.delete(`/api/finance/goals/${id}`);
       toast.success("Meta removida.");
@@ -83,26 +94,25 @@ export function GoalsSection() {
         </Button>
       </div>
 
-      {loading ? (
-        <div className="grid gap-4 md:grid-cols-2">
-          {[1, 2].map((i) => (
-            <div key={i} className="h-44 animate-pulse rounded-3xl border border-border bg-card" />
-          ))}
-        </div>
-      ) : goals.length === 0 ? (
-        <div className="flex flex-col items-center gap-4 rounded-3xl border border-dashed border-border bg-card py-16 text-center shadow-paper-sm">
-          <div className="rounded-3xl bg-brand-soft p-4 text-brand">
-            <Target className="h-8 w-8" />
-          </div>
-          <div>
-            <p className="font-semibold">Nenhuma meta cadastrada</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Defina objetivos financeiros e acompanhe seu progresso.
-            </p>
-          </div>
-        </div>
+      <ContentReveal
+        loading={loading}
+        skeleton="card"
+        count={2}
+        skeletonClassName="grid gap-4 md:grid-cols-2"
+      >
+        {goals.length === 0 ? (
+        <EmptyState
+          icon={Target}
+          title="Nenhuma meta cadastrada"
+          description="Defina objetivos financeiros e acompanhe seu progresso."
+          actionLabel="Nova meta"
+          onAction={() => {
+            setEditing(null);
+            setDialogOpen(true);
+          }}
+        />
       ) : (
-        <div className="grid gap-4 md:grid-cols-2">
+        <StaggerList className="grid gap-4 md:grid-cols-2">
           {goals.map((goal) => {
             const progress =
               goal.targetAmount > 0
@@ -110,7 +120,7 @@ export function GoalsSection() {
                 : 0;
 
             return (
-              <div key={goal.id} className="paper-note interactive-card group relative rounded-3xl p-6">
+              <StaggerItem key={goal.id} className="paper-note interactive-card group relative rounded-3xl p-6">
                 <div className="absolute right-4 top-4 flex gap-1">
                   <Button
                     type="button"
@@ -169,18 +179,35 @@ export function GoalsSection() {
                   </div>
                   <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
                     <span>{Math.round(progress)}% concluído</span>
-                    {goal.dueDate ? (
-                      <span>
-                        Prazo: {format(new Date(goal.dueDate), "dd MMM yyyy", { locale: ptBR })}
-                      </span>
-                    ) : null}
+                    <span className="flex flex-col items-end gap-0.5">
+                      {goal.dueDate ? (
+                        <span>
+                          Prazo: {format(new Date(goal.dueDate), "dd MMM yyyy", { locale: ptBR })}
+                        </span>
+                      ) : null}
+                      {(() => {
+                        const need = monthlyNeed({
+                          targetAmount: goal.targetAmount,
+                          currentAmount: goal.currentAmount,
+                          dueDate: goal.dueDate,
+                          status: goal.status,
+                        });
+                        if (need === null) return null;
+                        return (
+                          <span className="font-medium text-brand">
+                            {formatCurrency(need)}/mês necessário
+                          </span>
+                        );
+                      })()}
+                    </span>
                   </div>
                 </div>
-              </div>
+              </StaggerItem>
             );
           })}
-        </div>
+        </StaggerList>
       )}
+      </ContentReveal>
 
       <GoalDialog
         key={editing?.id ?? "new"}

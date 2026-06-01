@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import axios from "axios";
 import { toast } from "sonner";
 import { AnimatePresence, motion } from "framer-motion";
@@ -9,22 +9,28 @@ import { ptBR } from "date-fns/locale";
 import { useRouter } from "next/navigation";
 import {
   CheckCircle2,
+  ChevronDown,
   Circle,
   FilePenLine,
   FolderKanban,
   Pencil,
   Plus,
+  RotateCcw,
   Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { Badge } from "@/components/ui/badge";
 import { ProgressMeter } from "@/components/ui/ProgressMeter";
+import { Select } from "@/components/ui/FormField";
 import { TaskDialog } from "@/features/tasks/components/dialogs/TaskDialog";
 import { ProjectDialog } from "@/features/tasks/components/dialogs/ProjectDialog";
 import { SprintDialog } from "@/features/tasks/components/dialogs/SprintDialog";
 import { formatWeekRange } from "@/lib/utils/format";
 import { cn } from "@/lib/utils/cn";
 import { listContainer, listItem, springPage, springSnap } from "@/lib/motion/spring";
+import { useTasksStore } from "@/stores/tasks-store";
 
 type TaskStatus = "todo" | "doing" | "done" | "blocked";
 
@@ -33,6 +39,7 @@ type Project = {
   name: string;
   description: string;
   color: string;
+  icon?: string;
 };
 
 type Task = {
@@ -44,6 +51,7 @@ type Task = {
   projectId?: string | { id?: string; _id?: string; name?: string; color?: string };
   sprintId?: string;
   plannedFor?: string;
+  estimatedCost?: number;
 };
 
 type Sprint = {
@@ -59,6 +67,8 @@ type TasksBoardProps = {
   sprint: Record<string, unknown>;
   projects: Record<string, unknown>[];
   tasks: Record<string, unknown>[];
+  freeToSpend?: number;
+  initialProjectId?: string | null;
 };
 
 const PRIORITY_LABELS: Record<string, string> = {
@@ -117,12 +127,25 @@ export function TasksBoard({
   sprint: sprintRaw,
   projects: projectsRaw,
   tasks: tasksRaw,
+  freeToSpend = 0,
+  initialProjectId = null,
 }: TasksBoardProps) {
-  const sprint = sprintRaw as unknown as Sprint;
+  const confirm = useConfirm();
+  const initialSprint = sprintRaw as unknown as Sprint;
   const router = useRouter();
   const initialProjects = projectsRaw as unknown as Project[];
   const initialTasks = tasksRaw as unknown as Task[];
 
+  const {
+    statusFilter,
+    selectedProjectId,
+    setStatusFilter,
+    setSelectedProjectId,
+    setSelectedWeekStart,
+  } = useTasksStore();
+
+  const [sprint, setSprint] = useState<Sprint>(initialSprint);
+  const [sprints, setSprints] = useState<Sprint[]>([initialSprint]);
   const [projects, setProjects] = useState<Project[]>(initialProjects);
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
@@ -131,14 +154,40 @@ export function TasksBoard({
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [selectedDay, setSelectedDay] = useState<string>("all");
   const [sprintDialogOpen, setSprintDialogOpen] = useState(false);
+  const [distributionOpen, setDistributionOpen] = useState(false);
+  const [rollingOver, setRollingOver] = useState(false);
 
-  const refreshTasks = useCallback(async () => {
+  useEffect(() => {
+    if (initialProjectId) {
+      setSelectedProjectId(initialProjectId);
+    }
+  }, [initialProjectId, setSelectedProjectId]);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const res = await axios.get<{ data: Sprint[] }>("/api/tasks/sprints");
+        if (res.data.data.length) setSprints(res.data.data);
+      } catch {
+        /* keep initial sprint */
+      }
+    })();
+  }, []);
+
+  const refreshTasks = useCallback(async (sprintId = sprint.id) => {
     const res = await axios.get<{ data: Task[] }>("/api/tasks");
-    const sprintTasks = res.data.data.filter(
-      (t) => t.sprintId === sprint.id,
-    );
+    const sprintTasks = res.data.data.filter((t) => t.sprintId === sprintId);
     setTasks(sprintTasks);
   }, [sprint.id]);
+
+  async function handleSprintChange(sprintId: string) {
+    const selected = sprints.find((s) => s.id === sprintId);
+    if (!selected) return;
+    setSprint(selected);
+    setSelectedWeekStart(selected.startsAt);
+    setSelectedDay("all");
+    await refreshTasks(selected.id);
+  }
 
   const refreshProjects = useCallback(async () => {
     const res = await axios.get<{ data: Project[] }>("/api/tasks/projects");
@@ -147,12 +196,20 @@ export function TasksBoard({
 
   async function handleStatusCycle(task: Task) {
     const nextStatus = STATUS_CYCLE[task.status];
+    const willCompleteSprint =
+      nextStatus === "done" &&
+      tasks.filter((t) => t.status === "done").length + 1 === tasks.length &&
+      tasks.length > 0;
     try {
       await axios.patch(`/api/tasks/${task.id}`, { status: nextStatus });
       setTasks((prev) =>
         prev.map((t) => (t.id === task.id ? { ...t, status: nextStatus } : t)),
       );
-      if (nextStatus === "done") toast.success(`"${task.title}" concluída! ✓`);
+      if (willCompleteSprint) {
+        toast.success("Sprint 100% concluída! 🎉");
+      } else if (nextStatus === "done") {
+        toast.success(`"${task.title}" concluída! ✓`);
+      }
     } catch {
       toast.error("Erro ao atualizar status.");
     }
@@ -160,19 +217,33 @@ export function TasksBoard({
 
   async function handleToggleDone(task: Task) {
     const nextStatus = task.status === "done" ? "todo" : "done";
+    const willCompleteSprint =
+      nextStatus === "done" &&
+      tasks.filter((t) => t.status === "done" && t.id !== task.id).length + 1 ===
+        tasks.length &&
+      tasks.length > 0;
     try {
       await axios.patch(`/api/tasks/${task.id}`, { status: nextStatus });
       setTasks((prev) =>
         prev.map((t) => (t.id === task.id ? { ...t, status: nextStatus } : t)),
       );
-      if (nextStatus === "done") toast.success(`"${task.title}" concluída! ✓`);
+      if (willCompleteSprint) {
+        toast.success("Sprint 100% concluída! 🎉");
+      } else if (nextStatus === "done") {
+        toast.success(`"${task.title}" concluída! ✓`);
+      }
     } catch {
       toast.error("Erro ao atualizar status.");
     }
   }
 
   async function handleDeleteTask(id: string) {
-    if (!confirm("Remover esta tarefa?")) return;
+    const ok = await confirm({
+      title: "Remover tarefa?",
+      destructive: true,
+      confirmLabel: "Remover",
+    });
+    if (!ok) return;
     try {
       await axios.delete(`/api/tasks/${id}`);
       setTasks((prev) => prev.filter((t) => t.id !== id));
@@ -183,7 +254,11 @@ export function TasksBoard({
   }
 
   async function handleDeleteProject(id: string) {
-    if (!confirm("Arquivar este projeto?")) return;
+    const ok = await confirm({
+      title: "Arquivar projeto?",
+      confirmLabel: "Arquivar",
+    });
+    if (!ok) return;
     try {
       await axios.delete(`/api/tasks/projects/${id}`);
       toast.success("Projeto arquivado.");
@@ -194,17 +269,50 @@ export function TasksBoard({
   }
 
   const doneCount = tasks.filter((t) => t.status === "done").length;
-  const blockedCount = tasks.filter((t) => t.status === "blocked").length;
-  const pendingCount = tasks.length - doneCount;
   const progress = tasks.length ? Math.round((doneCount / tasks.length) * 100) : 0;
+  const sprintEstimatedTotal = tasks.reduce(
+    (total, task) => total + Number(task.estimatedCost ?? 0),
+    0,
+  );
+  const sprintCostOverBudget =
+    freeToSpend > 0 && sprintEstimatedTotal > freeToSpend;
+  async function handleRollover() {
+    setRollingOver(true);
+    try {
+      const res = await axios.post<{ data: { moved: number } }>(
+        "/api/tasks/sprints/rollover",
+        { targetSprintId: sprint.id },
+      );
+      const moved = res.data.data.moved;
+      if (moved > 0) {
+        toast.success(`${moved} tarefa${moved === 1 ? "" : "s"} trazida${moved === 1 ? "" : "s"} da sprint anterior.`);
+        await refreshTasks();
+      } else {
+        toast.message("Nada para trazer da sprint anterior.");
+      }
+    } catch {
+      toast.error("Erro ao fazer rollover.");
+    } finally {
+      setRollingOver(false);
+    }
+  }
+
   const weekDays = eachDayOfInterval({
     start: new Date(sprint.startsAt),
     end: new Date(sprint.endsAt),
   });
-  const visibleTasks =
+  const dayFilteredTasks =
     selectedDay === "all"
       ? tasks
-      : tasks.filter((task) => task.plannedFor && isSameDay(new Date(task.plannedFor), new Date(selectedDay)));
+      : tasks.filter(
+          (task) =>
+            task.plannedFor && isSameDay(new Date(task.plannedFor), new Date(selectedDay)),
+        );
+  const visibleTasks = dayFilteredTasks.filter((task) => {
+    if (statusFilter !== "all" && task.status !== statusFilter) return false;
+    if (selectedProjectId && getProjectId(task) !== selectedProjectId) return false;
+    return true;
+  });
 
   return (
     <div className="space-y-6">
@@ -220,6 +328,17 @@ export function TasksBoard({
           <p className="text-sm text-muted-foreground">
             {formatWeekRange(sprint.startsAt, sprint.endsAt)}
           </p>
+          {sprints.length > 1 ? (
+            <div className="mt-3 max-w-xs">
+              <Select value={sprint.id} onChange={(e) => void handleSprintChange(e.target.value)}>
+                {sprints.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {formatWeekRange(s.startsAt, s.endsAt)} · {s.title}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          ) : null}
           <div className="mt-3 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
               <h2 className="font-heading text-4xl font-bold tracking-[-0.04em] text-paper-ink">{sprint.title}</h2>
@@ -228,6 +347,15 @@ export function TasksBoard({
               ) : null}
             </div>
             <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                onClick={() => void handleRollover()}
+                disabled={rollingOver}
+                className="rounded-2xl"
+              >
+                <RotateCcw className="h-4 w-4" />
+                Rollover
+              </Button>
               <Button
                 variant="outline"
                 onClick={() => setSprintDialogOpen(true)}
@@ -257,6 +385,23 @@ export function TasksBoard({
           <p className="mt-2 text-sm text-muted-foreground">
             {doneCount} de {tasks.length} tarefas · {progress}% concluído
           </p>
+          {sprintEstimatedTotal > 0 ? (
+            <p
+              className={cn(
+                "mt-1 text-sm",
+                sprintCostOverBudget ? "font-medium text-warning" : "text-muted-foreground",
+              )}
+            >
+              Custo estimado da sprint:{" "}
+              {sprintEstimatedTotal.toLocaleString("pt-BR", {
+                style: "currency",
+                currency: "BRL",
+              })}
+              {sprintCostOverBudget
+                ? ` — acima do livre para gastar (${freeToSpend.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })})`
+                : null}
+            </p>
+          ) : null}
         </motion.div>
 
         <motion.div
@@ -294,13 +439,24 @@ export function TasksBoard({
                 variants={listItem}
                 className="group flex items-center justify-between gap-3"
               >
-                <div className="flex min-w-0 items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setSelectedProjectId(
+                      selectedProjectId === project.id ? null : project.id,
+                    )
+                  }
+                  className={cn(
+                    "flex min-w-0 flex-1 items-center gap-3 rounded-xl px-1 py-0.5 text-left transition-colors",
+                    selectedProjectId === project.id && "bg-brand-soft/60",
+                  )}
+                >
                   <span
                     className="h-3 w-3 shrink-0 rounded-full"
                     style={{ backgroundColor: project.color }}
                   />
                   <span className="truncate text-sm">{project.name}</span>
-                </div>
+                </button>
                 <div className="flex gap-1">
                   <Button
                     type="button"
@@ -333,24 +489,6 @@ export function TasksBoard({
             ) : null}
           </motion.div>
         </motion.div>
-      </section>
-
-      <section className="grid gap-4 md:grid-cols-3">
-        <div className="paper-note rounded-[1.65rem] p-5">
-          <p className="text-sm text-muted-foreground">Concluídas</p>
-          <p className="mt-2 text-3xl font-semibold text-success">{doneCount}</p>
-          <p className="mt-1 text-xs text-muted-foreground">Fechadas nesta sprint</p>
-        </div>
-        <div className="paper-note rounded-[1.65rem] p-5">
-          <p className="text-sm text-muted-foreground">Pendentes</p>
-          <p className="mt-2 text-3xl font-semibold text-warning">{pendingCount}</p>
-          <p className="mt-1 text-xs text-muted-foreground">Candidatas para hoje ou próxima semana</p>
-        </div>
-        <div className="paper-note rounded-[1.65rem] p-5">
-          <p className="text-sm text-muted-foreground">Bloqueadas</p>
-          <p className="mt-2 text-3xl font-semibold text-danger">{blockedCount}</p>
-          <p className="mt-1 text-xs text-muted-foreground">Precisam de decisão ou contexto</p>
-        </div>
       </section>
 
       <section className="paper-note rounded-[1.75rem] p-4">
@@ -403,16 +541,21 @@ export function TasksBoard({
               Marque, ajuste e siga em frente.
             </h3>
           </div>
-          <Button
-            onClick={() => {
-              setEditingTask(null);
-              setTaskDialogOpen(true);
-            }}
-            className="rounded-2xl"
-          >
-            <Plus className="h-4 w-4" />
-            Nova tarefa
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            {(["all", "todo", "doing", "blocked", "done"] as const).map((status) => (
+              <Button
+                key={status}
+                size="sm"
+                variant={statusFilter === status ? "default" : "ghost"}
+                onClick={() => setStatusFilter(status)}
+                className="rounded-full"
+              >
+                {status === "all"
+                  ? "Todas"
+                  : STATUS_LABELS[status as TaskStatus]}
+              </Button>
+            ))}
+          </div>
         </div>
 
         <div className="space-y-3">
@@ -540,17 +683,16 @@ export function TasksBoard({
           </AnimatePresence>
 
           {!visibleTasks.length ? (
-            <Button
-              type="button"
-              onClick={() => {
+            <EmptyState
+              icon={CheckCircle2}
+              title="Nenhuma tarefa aqui"
+              description="Adicione tarefas à sprint ou ajuste os filtros para ver mais."
+              actionLabel="Adicionar tarefa"
+              onAction={() => {
                 setEditingTask(null);
                 setTaskDialogOpen(true);
               }}
-              variant="outline"
-              className="h-auto w-full rounded-2xl border-dashed py-10 text-muted-foreground hover:text-foreground"
-            >
-              + Adicionar primeira tarefa
-            </Button>
+            />
           ) : null}
         </div>
       </section>
@@ -558,7 +700,11 @@ export function TasksBoard({
       {/* Project distribution */}
       {projects.length > 0 ? (
         <section className="paper-note rounded-[1.75rem] p-6">
-          <div className="flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => setDistributionOpen((open) => !open)}
+            className="flex w-full items-center justify-between gap-3 text-left"
+          >
             <div className="flex items-center gap-3">
               <div className="rounded-2xl bg-brand-soft p-3 text-brand">
                 <FolderKanban className="h-5 w-5" />
@@ -568,47 +714,60 @@ export function TasksBoard({
                 <h2 className="text-2xl font-semibold">Distribuição da sprint</h2>
               </div>
             </div>
-          </div>
-          <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {projects.map((project) => {
-              const projectTasks = tasks.filter((t) => getProjectId(t) === project.id);
-              const doneTasks = projectTasks.filter((t) => t.status === "done").length;
-              const pct = projectTasks.length
-                ? Math.round((doneTasks / projectTasks.length) * 100)
-                : 0;
+            <ChevronDown
+              className={cn(
+                "h-5 w-5 shrink-0 text-muted-foreground transition-transform",
+                distributionOpen && "rotate-180",
+              )}
+            />
+          </button>
+          {distributionOpen ? (
+            <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {projects.map((project) => {
+                const projectTasks = tasks.filter((t) => getProjectId(t) === project.id);
+                const doneTasks = projectTasks.filter((t) => t.status === "done").length;
+                const pct = projectTasks.length
+                  ? Math.round((doneTasks / projectTasks.length) * 100)
+                  : 0;
 
-              return (
-                <div key={project.id} className="rounded-3xl border border-border bg-transparent p-5 transition-colors duration-200 hover:bg-card/70">
-                  <div className="flex items-center gap-3">
-                    <span
-                      className="h-3 w-3 rounded-full"
-                      style={{ backgroundColor: project.color }}
-                    />
-                    <h3 className="font-semibold">{project.name}</h3>
-                    <span className="ml-auto text-sm text-muted-foreground">
-                      {doneTasks}/{projectTasks.length}
-                    </span>
-                  </div>
-                  {project.description ? (
-                    <p className="mt-2 text-sm text-muted-foreground">{project.description}</p>
-                  ) : null}
-                  {projectTasks.length > 0 ? (
-                    <div className="mt-4">
-                      <div className="h-1.5 overflow-hidden rounded-full bg-surface">
-                        <div
-                          className="h-full rounded-full transition-all"
-                          style={{ width: `${pct}%`, backgroundColor: project.color }}
-                        />
-                      </div>
-                      <p className="mt-1.5 text-xs text-muted-foreground">{pct}% concluído</p>
+                return (
+                  <div
+                    key={project.id}
+                    className="rounded-3xl border border-border bg-transparent p-5 transition-colors duration-200 hover:bg-card/70"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span
+                        className="h-3 w-3 rounded-full"
+                        style={{ backgroundColor: project.color }}
+                      />
+                      <h3 className="font-semibold">{project.name}</h3>
+                      <span className="ml-auto text-sm text-muted-foreground">
+                        {doneTasks}/{projectTasks.length}
+                      </span>
                     </div>
-                  ) : (
-                    <p className="mt-3 text-sm text-muted-foreground">Nenhuma tarefa nesta sprint</p>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+                    {project.description ? (
+                      <p className="mt-2 text-sm text-muted-foreground">{project.description}</p>
+                    ) : null}
+                    {projectTasks.length > 0 ? (
+                      <div className="mt-4">
+                        <div className="h-1.5 overflow-hidden rounded-full bg-surface">
+                          <div
+                            className="h-full rounded-full transition-all"
+                            style={{ width: `${pct}%`, backgroundColor: project.color }}
+                          />
+                        </div>
+                        <p className="mt-1.5 text-xs text-muted-foreground">{pct}% concluído</p>
+                      </div>
+                    ) : (
+                      <p className="mt-3 text-sm text-muted-foreground">
+                        Nenhuma tarefa nesta sprint
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
         </section>
       ) : null}
 

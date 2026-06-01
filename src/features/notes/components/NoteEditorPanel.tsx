@@ -18,6 +18,7 @@ import { NOTE_ACCENT_META, NOTE_ACCENT_OPTIONS } from "@/features/notes/lib/acce
 import type { NoteDetailDTO, NoteFolderDTO, NoteListItemDTO } from "@/features/notes/lib/types";
 import type { NoteAccent } from "@/lib/note-accents";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -69,6 +70,7 @@ function NoteEditorBody({
   onUpdatedMeta,
   showMobileBack,
 }: NoteEditorBodyProps) {
+  const confirm = useConfirm();
   const [detail, setDetail] = useState<NoteDetailDTO | null>(null);
   const [loading, setLoading] = useState(false);
   const [title, setTitle] = useState("");
@@ -172,7 +174,13 @@ function NoteEditorBody({
   );
 
   const handleDelete = async () => {
-    if (!window.confirm("Excluir esta anotação permanentemente?")) return;
+    const ok = await confirm({
+      title: "Excluir anotação?",
+      description: "Esta ação não pode ser desfeita.",
+      destructive: true,
+      confirmLabel: "Excluir",
+    });
+    if (!ok) return;
     const res = await fetch(`/api/notes/${noteId}`, { method: "DELETE" });
     if (!res.ok) {
       toast.error("Não foi possível excluir.");

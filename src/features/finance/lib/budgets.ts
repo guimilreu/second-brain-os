@@ -7,6 +7,7 @@ import { RecurringRule } from "@/models/RecurringRule";
 import { Transaction } from "@/models/Transaction";
 
 export type BudgetUsageRow = {
+  id?: string;
   category: string;
   planned: number;
   spent: number;
@@ -82,6 +83,7 @@ export async function getBudgetUsage(userId: string, monthKey: string) {
     const spent = spentByCat[category] ?? 0;
     const projection = projectedExpenseByCat[category] ?? 0;
     return {
+      id: budget ? String(budget._id) : undefined,
       category,
       planned,
       spent,

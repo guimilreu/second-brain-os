@@ -8,6 +8,7 @@ import {
 	NotebookPen,
 	LogOut,
 	Menu,
+	Settings,
 	X,
 } from "lucide-react";
 import Link from "next/link";
@@ -23,7 +24,7 @@ const NAV_SECTIONS = [
 	{
 		label: "Hoje",
 		items: [
-			{ href: "/", label: "Dashboard", icon: Home },
+			{ href: "/", label: "Hoje", icon: Home },
 			{ href: "/notes", label: "Anotações", icon: NotebookPen },
 		],
 	},
@@ -36,7 +37,11 @@ const NAV_SECTIONS = [
 	},
 	{
 		label: "Planejamento",
-		items: [{ href: "/wishlist", label: "Lista de desejos", icon: ShoppingBag }],
+		items: [{ href: "/wishlist", label: "Compras", icon: ShoppingBag }],
+	},
+	{
+		label: "Sistema",
+		items: [{ href: "/settings", label: "Configurações", icon: Settings }],
 	},
 ] as const;
 

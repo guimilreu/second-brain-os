@@ -1,4 +1,5 @@
 import { type NextRequest } from "next/server";
+import { taskPatchSchema } from "@/features/tasks/lib/schemas";
 import { requireCurrentUser } from "@/lib/auth/current-user";
 import { connectToDatabase } from "@/lib/db/mongodb";
 import { fail, handleApiError, ok } from "@/lib/http/api-response";
@@ -14,17 +15,16 @@ export async function PATCH(
     const { id } = await params;
     await connectToDatabase();
 
-    const body = await request.json();
-    const { _id, userId, ...safe } = body as Record<string, unknown>;
-    void _id; void userId;
+    const patch = taskPatchSchema.parse(await request.json());
+    const updates: Record<string, unknown> = { ...patch };
 
-    if (safe.status === "done") {
-      (safe as Record<string, unknown>).completedAt = new Date();
+    if (patch.status === "done") {
+      updates.completedAt = new Date();
     }
 
     const task = await Task.findOneAndUpdate(
       { _id: id, userId: user.userId },
-      { $set: safe },
+      { $set: updates },
       { returnDocument: "after" },
     );
 

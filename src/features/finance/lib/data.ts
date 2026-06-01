@@ -3,6 +3,7 @@ import { ptBR } from "date-fns/locale";
 import { calculateFinanceForecast } from "@/features/finance/lib/forecast";
 import { buildFinanceAlerts } from "@/features/finance/lib/alerts";
 import { getNetWorthSeries } from "@/features/finance/lib/netWorth";
+import { sumEstimatedForMonth } from "@/features/wishlist/lib/aggregation";
 import { ensureDefaultCategories } from "@/lib/finance/seed-categories";
 import { connectToDatabase } from "@/lib/db/mongodb";
 import { serializeDocuments } from "@/lib/utils/serialize";
@@ -12,6 +13,7 @@ import { RecurringRule } from "@/models/RecurringRule";
 import { SavingsPot } from "@/models/SavingsPot";
 import { Transaction } from "@/models/Transaction";
 import { CreditCardInvoice } from "@/models/CreditCardInvoice";
+import { WishlistItem } from "@/models/WishlistItem";
 
 export async function getFinanceOverview(userId: string) {
   await connectToDatabase();
@@ -141,6 +143,36 @@ export async function getFinanceOverview(userId: string) {
       net: income - expenses,
     };
   });
+  const expectedExpenseByCat: Record<string, number> = {};
+  for (const occurrence of forecast.occurrences) {
+    if (occurrence.type !== "expense") continue;
+    expectedExpenseByCat[occurrence.category] =
+      (expectedExpenseByCat[occurrence.category] ?? 0) + occurrence.amount;
+  }
+
+  const realizedExpenseByCat: Record<string, number> = {};
+  for (const transaction of transactionInputs) {
+    if (transaction.type !== "expense" || transaction.status !== "confirmed") continue;
+    const category = transaction.category ?? "Outro";
+    realizedExpenseByCat[category] =
+      (realizedExpenseByCat[category] ?? 0) + transaction.amount;
+  }
+
+  const categoryKeys = new Set([
+    ...Object.keys(expectedExpenseByCat),
+    ...Object.keys(realizedExpenseByCat),
+    ...forecast.byCategory.map((row) => row.category),
+  ]);
+
+  const byCategoryComparison = [...categoryKeys]
+    .map((category) => ({
+      category,
+      expected: expectedExpenseByCat[category] ?? 0,
+      realized: realizedExpenseByCat[category] ?? 0,
+    }))
+    .filter((row) => row.expected > 0 || row.realized > 0)
+    .sort((a, b) => b.realized + b.expected - (a.realized + a.expected));
+
   const allocationPlan = Object.entries(forecast.allocationsByPot)
     .map(([potId, amount]) => {
       const pot = savingsPots.find((item) => String(item._id) === potId);
@@ -155,8 +187,22 @@ export async function getFinanceOverview(userId: string) {
     .sort((a, b) => b.amount - a.amount);
 
   const monthKey = format(now, "yyyy-MM");
+
+  const wishlistItemsRaw = await WishlistItem.find({ userId }).lean();
+  const wishlistPlain = wishlistItemsRaw.map((item) => ({
+    plannedMonthKey: item.plannedMonthKey ? String(item.plannedMonthKey) : null,
+    lane: String(item.lane),
+    status: String(item.status),
+    category: String(item.category),
+    estimatedPrice: Number(item.estimatedPrice ?? 0),
+  }));
+  const wishlistPlannedTotal = sumEstimatedForMonth(wishlistPlain, monthKey);
+
   const [financeAlerts, netWorthSeries] = await Promise.all([
-    buildFinanceAlerts(userId, forecast, monthKey).catch(() => []),
+    buildFinanceAlerts(userId, forecast, monthKey, {
+      wishlistPlannedTotal,
+      freeToSpend: forecast.freeToSpend,
+    }).catch(() => []),
     getNetWorthSeries(userId, 180).catch(() => []),
   ]);
 
@@ -209,6 +255,7 @@ export async function getFinanceOverview(userId: string) {
       upcomingOccurrences,
       lateOccurrences,
       allocationPlan,
+      byCategoryComparison,
     },
     monthlyHistory,
     futureProjection,

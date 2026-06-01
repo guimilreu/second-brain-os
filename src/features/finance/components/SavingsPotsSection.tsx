@@ -5,7 +5,11 @@ import axios from "axios";
 import { toast } from "sonner";
 import { Pencil, PiggyBank, Plus, Trash2 } from "lucide-react";
 import { SavingsPotDialog } from "@/features/finance/components/dialogs/SavingsPotDialog";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { ContentReveal } from "@/components/motion/ContentReveal";
+import { StaggerItem, StaggerList } from "@/components/motion/StaggerList";
 import { formatCurrency } from "@/lib/utils/format";
 
 type SavingsPot = {
@@ -19,6 +23,7 @@ type SavingsPot = {
 };
 
 export function SavingsPotsSection() {
+  const confirm = useConfirm();
   const [pots, setPots] = useState<SavingsPot[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -42,7 +47,12 @@ export function SavingsPotsSection() {
   }, [fetch]);
 
   async function handleDelete(id: string) {
-    if (!confirm("Remover este cofrinho?")) return;
+    const ok = await confirm({
+      title: "Remover cofrinho?",
+      destructive: true,
+      confirmLabel: "Remover",
+    });
+    if (!ok) return;
     try {
       await axios.delete(`/api/finance/savings-pots/${id}`);
       toast.success("Cofrinho removido.");
@@ -73,26 +83,25 @@ export function SavingsPotsSection() {
         </Button>
       </div>
 
-      {loading ? (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-40 animate-pulse rounded-3xl border border-border bg-card" />
-          ))}
-        </div>
-      ) : pots.length === 0 ? (
-        <div className="flex flex-col items-center gap-4 rounded-3xl border border-dashed border-border bg-card py-16 text-center shadow-paper-sm">
-          <div className="rounded-3xl bg-brand-soft p-4 text-brand">
-            <PiggyBank className="h-8 w-8" />
-          </div>
-          <div>
-            <p className="font-semibold">Nenhum cofrinho ainda</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Crie cofrinhos para reservar parte das suas entradas automaticamente.
-            </p>
-          </div>
-        </div>
+      <ContentReveal
+        loading={loading}
+        skeleton="card"
+        count={3}
+        skeletonClassName="grid gap-4 md:grid-cols-2 xl:grid-cols-3"
+      >
+        {pots.length === 0 ? (
+        <EmptyState
+          icon={PiggyBank}
+          title="Nenhum cofrinho ainda"
+          description="Crie cofrinhos para reservar parte das suas entradas automaticamente."
+          actionLabel="Novo cofrinho"
+          onAction={() => {
+            setEditing(null);
+            setDialogOpen(true);
+          }}
+        />
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <StaggerList className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {pots.map((pot) => {
             const progress =
               pot.targetAmount > 0
@@ -100,7 +109,7 @@ export function SavingsPotsSection() {
                 : 0;
 
             return (
-              <div key={pot.id} className="paper-note interactive-card group relative rounded-3xl p-5">
+              <StaggerItem key={pot.id} className="paper-note interactive-card group relative rounded-3xl p-5">
                 <div className="absolute right-4 top-4 flex gap-1">
                   <Button
                     type="button"
@@ -151,11 +160,12 @@ export function SavingsPotsSection() {
                     {Math.round(progress)}% concluído
                   </p>
                 </div>
-              </div>
+              </StaggerItem>
             );
           })}
-        </div>
+        </StaggerList>
       )}
+      </ContentReveal>
 
       <SavingsPotDialog
         key={editing?.id ?? "new"}

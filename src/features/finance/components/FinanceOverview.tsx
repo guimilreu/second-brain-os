@@ -6,6 +6,8 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Line,
+  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -125,6 +127,11 @@ type FinanceOverviewProps = {
         color: string;
         amount: number;
       }[];
+      byCategoryComparison?: {
+        category: string;
+        expected: number;
+        realized: number;
+      }[];
       occurrences: ForecastOccurrence[];
       upcomingOccurrences: ForecastOccurrence[];
       lateOccurrences: ForecastOccurrence[];
@@ -203,6 +210,8 @@ export function FinanceOverview({ data }: FinanceOverviewProps) {
       ? latestNetWorth.netWorth - previousNetWorth.netWorth
       : 0;
   const hasForecastChart = chartData.some((row) => row.entrada > 0 || row.saida > 0);
+  const hasCategoryComparison = (data.forecast.byCategoryComparison?.length ?? 0) > 0;
+  const categoryComparisonData = (data.forecast.byCategoryComparison ?? []).slice(0, 8);
   const hasCategoryData = categoryData.some((row) => row.total > 0);
   const hasMonthlyHistory = data.monthlyHistory.some(
     (row) => row.income !== 0 || row.expenses !== 0 || row.net !== 0,
@@ -214,6 +223,11 @@ export function FinanceOverview({ data }: FinanceOverviewProps) {
       row.allocationAmount !== 0 ||
       row.freeToSpend !== 0,
   );
+  const hasNetWorthSeries = netWorthSeries.length >= 2;
+  const netWorthChartData = netWorthSeries.map((point) => ({
+    label: point.dateKey.slice(5),
+    netWorth: point.netWorth,
+  }));
   const progressItems = [...data.savingsPots, ...data.goals].slice(0, 5);
 
   async function dismissAlert(alertId: string) {
@@ -427,6 +441,37 @@ export function FinanceOverview({ data }: FinanceOverviewProps) {
           </div>
         </aside>
       </div>
+
+      {hasNetWorthSeries ? (
+        <SectionCard
+          eyebrow="Patrimônio"
+          title="Evolução do net worth"
+          description="Série diária de ativos menos passivos."
+        >
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={netWorthChartData}>
+                <CartesianGrid strokeDasharray="3 3" opacity={0.18} />
+                <XAxis dataKey="label" tickLine={false} axisLine={false} />
+                <YAxis
+                  tickFormatter={(value) => `R$${value}`}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                <Line
+                  type="monotone"
+                  dataKey="netWorth"
+                  name="Patrimônio líquido"
+                  stroke="#ffc100"
+                  strokeWidth={2}
+                  dot={false}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </SectionCard>
+      ) : null}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard
@@ -646,6 +691,50 @@ export function FinanceOverview({ data }: FinanceOverviewProps) {
             )}
           </SectionCard>
         </div>
+      ) : null}
+
+      {hasCategoryComparison ? (
+        <SectionCard
+          eyebrow="Orçamento"
+          title="Previsto vs realizado por categoria"
+          description="Saídas confirmadas no mês comparadas às recorrências ainda previstas."
+        >
+          <div className="space-y-3">
+            {categoryComparisonData.map((row) => {
+              const maxVal = Math.max(row.expected, row.realized, 1);
+              return (
+                <div key={row.category} className="rounded-2xl border border-border bg-background p-4">
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span className="font-medium">{row.category}</span>
+                    <span className="text-muted-foreground">
+                      {formatCurrency(row.realized)} / {formatCurrency(row.expected)}
+                    </span>
+                  </div>
+                  <div className="mt-3 grid gap-2">
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="w-16 text-muted-foreground">Realizado</span>
+                      <div className="h-2 flex-1 overflow-hidden rounded-full bg-surface-soft">
+                        <div
+                          className="h-full bg-brand"
+                          style={{ width: `${(row.realized / maxVal) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="w-16 text-muted-foreground">Previsto</span>
+                      <div className="h-2 flex-1 overflow-hidden rounded-full bg-surface-soft">
+                        <div
+                          className="h-full bg-muted-foreground/50"
+                          style={{ width: `${(row.expected / maxVal) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </SectionCard>
       ) : null}
 
       {(hasCategoryData || progressItems.length > 0 || data.forecast.allocationPlan.length > 0) ? (

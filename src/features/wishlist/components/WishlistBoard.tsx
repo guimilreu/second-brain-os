@@ -21,12 +21,16 @@ import { CSS } from "@dnd-kit/utilities";
 import axios from "axios";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
-import { Plus } from "lucide-react";
+import { Plus, ShoppingBag, Sparkles, Archive } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
+import { EmptyState } from "@/components/ui/EmptyState";
 import type { WishlistOverview, WishlistOverviewItem } from "@/features/wishlist/lib/types";
+import { affordabilityScore, type SuggestBestMonthOptions } from "@/features/wishlist/lib/aggregation";
 import { formatMonthKeyLabel } from "@/features/wishlist/lib/format";
 import { TransactionDialog } from "@/features/finance/components/dialogs/TransactionDialog";
+import { InstallmentDialog } from "@/features/finance/components/dialogs/InstallmentDialog";
 import { cn } from "@/lib/utils/cn";
 import { MonthBudgetDialog } from "./MonthBudgetDialog";
 import { WishlistItemCard } from "./WishlistItemCard";
@@ -59,30 +63,29 @@ function mergeMonthKeys(boardKeys: string[], itemList: WishlistOverviewItem[]) {
   return Array.from(merged).sort();
 }
 
-function columnIdForItem(item: WishlistOverviewItem, monthKeys: string[]) {
+function columnIdForItem(item: WishlistOverviewItem, focusMonthKey: string) {
   if (item.lane === "dream") {
     return "dream";
   }
   if (item.lane === "archive") {
     return "archive";
   }
-  if (item.lane === "planned" && item.plannedMonthKey) {
-    const key = String(item.plannedMonthKey);
-    return `month:${key}`;
-  }
-  if (item.lane === "planned" && monthKeys[0]) {
-    return `month:${monthKeys[0]}`;
+  if (
+    item.lane === "planned" &&
+    item.plannedMonthKey &&
+    String(item.plannedMonthKey) === focusMonthKey
+  ) {
+    return "focus";
   }
   return "dream";
 }
 
-function buildColumnIds(monthKeys: string[]) {
-  return ["dream", ...monthKeys.map((key) => `month:${key}`), "archive"] as const;
-}
+const COLUMN_IDS = ["dream", "focus", "archive"] as const;
 
 function lanePayloadFromColumn(
   columnId: string,
   previous: WishlistOverviewItem,
+  focusMonthKey: string,
 ): { lane: string; plannedMonthKey: string | null } {
   if (columnId === "dream") {
     return { lane: "dream", plannedMonthKey: null };
@@ -93,8 +96,7 @@ function lanePayloadFromColumn(
       plannedMonthKey: previous.plannedMonthKey ?? null,
     };
   }
-  const monthKey = columnId.startsWith("month:") ? columnId.slice("month:".length) : "";
-  return { lane: "planned", plannedMonthKey: monthKey || null };
+  return { lane: "planned", plannedMonthKey: focusMonthKey || null };
 }
 
 function normalizedPlannedMonthKey(
@@ -132,13 +134,25 @@ function wishlistDragPatchIsRedundant(
 type WishlistSortableWrapProps = {
   item: WishlistOverviewItem;
   monthOverCap: boolean;
+  affordability?: ReturnType<typeof affordabilityScore> | null;
+  suggestOptions?: SuggestBestMonthOptions;
+  savingsPotName?: string;
+  goalName?: string;
   onEdit: (item: WishlistOverviewItem) => void;
+  onLinkPot: (item: WishlistOverviewItem) => void;
+  onReservePot: (item: WishlistOverviewItem) => void;
 };
 
 function WishlistSortableWrap({
   item,
   monthOverCap,
+  affordability,
+  suggestOptions,
+  savingsPotName,
+  goalName,
   onEdit,
+  onLinkPot,
+  onReservePot,
 }: WishlistSortableWrapProps) {
   const sortable = useSortable({ id: item.id });
   const style = {
@@ -156,7 +170,13 @@ function WishlistSortableWrap({
         }
         isDragging={sortable.isDragging}
         monthOverCap={monthOverCap}
+        affordability={affordability}
+        suggestOptions={suggestOptions}
+        savingsPotName={savingsPotName}
+        goalName={goalName}
         onEdit={() => onEdit(item)}
+        onLinkPot={() => onLinkPot(item)}
+        onReservePot={() => onReservePot(item)}
       />
     </div>
   );
@@ -168,7 +188,14 @@ type WishlistColumnProps = {
   subtitle?: string;
   items: WishlistOverviewItem[];
   monthOverCap: boolean;
+  freeToSpend: number;
+  plannedTotal: number;
+  suggestOptions?: SuggestBestMonthOptions;
+  potNameById: Record<string, string>;
+  goalNameById: Record<string, string>;
   onEdit: (item: WishlistOverviewItem) => void;
+  onLinkPot: (item: WishlistOverviewItem) => void;
+  onReservePot: (item: WishlistOverviewItem) => void;
 };
 
 function WishlistColumn({
@@ -177,10 +204,38 @@ function WishlistColumn({
   subtitle,
   items,
   monthOverCap,
+  freeToSpend,
+  plannedTotal,
+  suggestOptions,
+  potNameById,
+  goalNameById,
   onEdit,
+  onLinkPot,
+  onReservePot,
 }: WishlistColumnProps) {
   const droppable = useDroppable({ id });
   const sorted = sortWishItems(items);
+
+  const emptyConfig =
+    id === "dream"
+      ? {
+          icon: Sparkles,
+          title: "Nenhum sonho aqui",
+          description: "Arraste itens ou crie novos desejos sem mês definido.",
+        }
+      : id === "focus"
+        ? {
+            icon: ShoppingBag,
+            title: "Mês foco vazio",
+            description: "Arraste desejos para planejar compras deste mês.",
+          }
+        : {
+            icon: Archive,
+            title: "Arquivo vazio",
+            description: "Itens comprados ou cancelados aparecem aqui.",
+          };
+
+  const EmptyIcon = emptyConfig.icon;
 
   return (
     <div
@@ -202,16 +257,38 @@ function WishlistColumn({
           strategy={verticalListSortingStrategy}
         >
           {sorted.length === 0 ? (
-            <p className="rounded-2xl border border-dashed border-border bg-card px-3 py-6 text-center text-sm text-muted-foreground shadow-paper-sm">
-              Arraste itens pra cá ou crie novo.
-            </p>
+            <div className="py-2">
+              <EmptyState
+                icon={EmptyIcon}
+                title={emptyConfig.title}
+                description={emptyConfig.description}
+              />
+            </div>
           ) : (
             sorted.map((item) => (
               <WishlistSortableWrap
                 key={item.id}
                 item={item}
                 monthOverCap={monthOverCap}
+                affordability={
+                  id === "focus"
+                    ? affordabilityScore(
+                        Number(item.estimatedPrice ?? 0),
+                        freeToSpend,
+                        plannedTotal,
+                      )
+                    : null
+                }
+                suggestOptions={id === "dream" ? suggestOptions : undefined}
+                savingsPotName={
+                  item.savingsPotId ? potNameById[item.savingsPotId] : undefined
+                }
+                goalName={
+                  item.financialGoalId ? goalNameById[item.financialGoalId] : undefined
+                }
                 onEdit={onEdit}
+                onLinkPot={onLinkPot}
+                onReservePot={onReservePot}
               />
             ))
           )}
@@ -222,13 +299,23 @@ function WishlistColumn({
 }
 
 type FinancePrefill = {
+  wishlistItemId: string;
   title: string;
   amount: number;
   category: string;
   notes?: string;
 };
 
+type InstallmentPrefill = {
+  wishlistItemId: string;
+  title: string;
+  totalAmount: number;
+  category: string;
+  notes?: string;
+};
+
 export function WishlistBoard({ overview }: { overview: WishlistOverview }) {
+  const confirm = useConfirm();
   const router = useRouter();
   const items = overview.items;
   const [itemDialogOpen, setItemDialogOpen] = useState(false);
@@ -237,8 +324,34 @@ export function WishlistBoard({ overview }: { overview: WishlistOverview }) {
   );
   const [budgetOpen, setBudgetOpen] = useState(false);
   const [financeOpen, setFinanceOpen] = useState(false);
+  const [installmentOpen, setInstallmentOpen] = useState(false);
   const [prefill, setPrefill] = useState<FinancePrefill | null>(null);
+  const [installmentPrefill, setInstallmentPrefill] = useState<InstallmentPrefill | null>(
+    null,
+  );
   const [prefillRevision, setPrefillRevision] = useState(0);
+  const [installmentRevision, setInstallmentRevision] = useState(0);
+  const [pendingWishlistItemId, setPendingWishlistItemId] = useState<string | null>(
+    null,
+  );
+
+  const potNameById = useMemo(
+    () => Object.fromEntries(overview.savingsPots.map((row) => [row.id, row.name])),
+    [overview.savingsPots],
+  );
+  const goalNameById = useMemo(
+    () => Object.fromEntries(overview.goals.map((row) => [row.id, row.name])),
+    [overview.goals],
+  );
+  const suggestOptions = useMemo<SuggestBestMonthOptions>(
+    () => ({
+      futureProjection: overview.futureProjection,
+      financeHints: overview.financeHints,
+      totalsByMonth: overview.totalsByMonth,
+      monthKeys: overview.monthKeys,
+    }),
+    [overview.futureProjection, overview.financeHints, overview.totalsByMonth, overview.monthKeys],
+  );
 
   const extMonthKeys = useMemo(
     () => mergeMonthKeys(overview.monthKeys, items),
@@ -249,10 +362,7 @@ export function WishlistBoard({ overview }: { overview: WishlistOverview }) {
     overview.monthKeys[0] ?? extMonthKeys[0] ?? "",
   );
 
-  const columnIds = useMemo(
-    () => [...buildColumnIds(extMonthKeys)] as string[],
-    [extMonthKeys],
-  );
+  const columnIds = COLUMN_IDS as unknown as string[];
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -267,6 +377,9 @@ export function WishlistBoard({ overview }: { overview: WishlistOverview }) {
   const freeHint =
     overview.financeHints.find((row) => row.monthKey === selectedMonthKey)
       ?.freeToSpend ?? 0;
+  const availableAfterList =
+    overview.availableAfterListByMonth[selectedMonthKey] ??
+    freeHint - totalSelected;
   const overSelected = overview.overCapByMonth[selectedMonthKey] ?? false;
   const capRatio = capForSelected > 0 ? Math.min(totalSelected / capForSelected, 1) : 0;
 
@@ -292,9 +405,74 @@ export function WishlistBoard({ overview }: { overview: WishlistOverview }) {
   }
 
   function openFinanceFromPurchase(payload: FinancePrefill) {
+    setPendingWishlistItemId(payload.wishlistItemId);
     setPrefill(payload);
     setPrefillRevision((value) => value + 1);
     setFinanceOpen(true);
+  }
+
+  function openInstallmentFromPurchase(payload: InstallmentPrefill) {
+    setPendingWishlistItemId(payload.wishlistItemId);
+    setInstallmentPrefill(payload);
+    setInstallmentRevision((value) => value + 1);
+    setInstallmentOpen(true);
+  }
+
+  async function linkWishlistAfterFinance(
+    wishlistItemId: string,
+    patch: Record<string, string>,
+  ) {
+    try {
+      await axios.patch(`/api/wishlist/items/${wishlistItemId}`, patch);
+    } catch {
+      toast.error("Compra registrada, mas não foi possível vincular ao item.");
+    }
+  }
+
+  function openLinkPot(item: WishlistOverviewItem) {
+    setEditingItem(item);
+    setItemDialogOpen(true);
+  }
+
+  function openReservePot(item: WishlistOverviewItem) {
+    if (!item.savingsPotId) {
+      openLinkPot(item);
+      return;
+    }
+    void (async () => {
+      const pot = overview.savingsPots.find((row) => row.id === item.savingsPotId);
+      const amount = Number(item.estimatedPrice ?? 0);
+      if (!pot?.bankAccountId) {
+        toast.error("Este cofrinho não tem conta vinculada.");
+        return;
+      }
+      if (amount <= 0) {
+        toast.error("Informe um preço estimado para reservar.");
+        openLinkPot(item);
+        return;
+      }
+      const ok = await confirm({
+        title: "Reservar no cofrinho?",
+        description: `Transferir ${brl.format(amount)} para ${pot.name}.`,
+        confirmLabel: "Reservar",
+      });
+      if (!ok) return;
+      try {
+        await axios.post("/api/finance/transfers", {
+          kind: "account-to-pot",
+          fromAccountId: pot.bankAccountId,
+          toPotId: item.savingsPotId,
+          amount,
+          occurredAt: new Date().toISOString(),
+          notes: `Reserva wishlist: ${item.title}`,
+          status: "confirmed",
+        });
+        toast.success("Valor reservado no cofrinho.");
+        refresh();
+      } catch {
+        toast.error("Não foi possível reservar no cofrinho.");
+      }
+    })();
   }
 
   async function applyDragPatches(event: DragEndEvent) {
@@ -307,14 +485,14 @@ export function WishlistBoard({ overview }: { overview: WishlistOverview }) {
     const activeItem = items.find((row) => row.id === activeId);
     if (!activeItem) return;
 
-    const sourceCol = columnIdForItem(activeItem, extMonthKeys);
+    const sourceCol = columnIdForItem(activeItem, selectedMonthKey);
 
     function targetColumnFromOver(): string | null {
       if (columnIds.includes(overId)) {
         return overId;
       }
       const overItem = items.find((row) => row.id === overId);
-      return overItem ? columnIdForItem(overItem, extMonthKeys) : null;
+      return overItem ? columnIdForItem(overItem, selectedMonthKey) : null;
     }
 
     const targetCol = targetColumnFromOver();
@@ -323,7 +501,7 @@ export function WishlistBoard({ overview }: { overview: WishlistOverview }) {
     const destWithoutActive = sortWishItems(
       items.filter(
         (row) =>
-          columnIdForItem(row, extMonthKeys) === targetCol && row.id !== activeId,
+          columnIdForItem(row, selectedMonthKey) === targetCol && row.id !== activeId,
       ),
     );
 
@@ -351,7 +529,7 @@ export function WishlistBoard({ overview }: { overview: WishlistOverview }) {
     newDest.forEach((row, index) => {
       const body: Record<string, unknown> = { sortOrder: index * 100 };
       if (row.id === activeId) {
-        Object.assign(body, lanePayloadFromColumn(targetCol, activeItem));
+        Object.assign(body, lanePayloadFromColumn(targetCol, activeItem, selectedMonthKey));
       }
       addPatch(row.id, body);
     });
@@ -360,7 +538,7 @@ export function WishlistBoard({ overview }: { overview: WishlistOverview }) {
       const newSource = sortWishItems(
         items.filter(
           (row) =>
-            columnIdForItem(row, extMonthKeys) === sourceCol && row.id !== activeId,
+            columnIdForItem(row, selectedMonthKey) === sourceCol && row.id !== activeId,
         ),
       );
       newSource.forEach((row, index) => {
@@ -446,7 +624,7 @@ export function WishlistBoard({ overview }: { overview: WishlistOverview }) {
             ))}
           </div>
 
-          <div className="grid gap-4 border-t border-border pt-5 sm:grid-cols-3">
+          <div className="grid gap-4 border-t border-border pt-5 sm:grid-cols-2 lg:grid-cols-4">
             <div className="rounded-2xl bg-surface-soft/60 p-4">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Planejado</p>
               <p className={cn("mt-1 text-xl font-semibold", overSelected ? "text-danger" : "text-foreground")}>
@@ -460,8 +638,14 @@ export function WishlistBoard({ overview }: { overview: WishlistOverview }) {
               </p>
             </div>
             <div className="rounded-2xl bg-surface-soft/60 p-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Livre</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Livre (mês)</p>
               <p className="mt-1 text-xl font-semibold text-foreground">{brl.format(freeHint)}</p>
+            </div>
+            <div className="rounded-2xl bg-surface-soft/60 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Livre após lista</p>
+              <p className={cn("mt-1 text-xl font-semibold", availableAfterList < 0 ? "text-danger" : "text-foreground")}>
+                {brl.format(availableAfterList)}
+              </p>
             </div>
           </div>
           {capForSelected > 0 ? (
@@ -503,43 +687,47 @@ export function WishlistBoard({ overview }: { overview: WishlistOverview }) {
           <WishlistColumn
             id="dream"
             title="Sonhos"
-            subtitle="Sem mês definido · arraste para planejar"
-            items={items.filter((row) => columnIdForItem(row, extMonthKeys) === "dream")}
+            subtitle="Sem mês definido · arraste para o mês foco"
+            items={items.filter((row) => columnIdForItem(row, selectedMonthKey) === "dream")}
             monthOverCap={false}
+            freeToSpend={freeHint}
+            plannedTotal={totalSelected}
+            suggestOptions={suggestOptions}
+            potNameById={potNameById}
+            goalNameById={goalNameById}
             onEdit={openEdit}
+            onLinkPot={openLinkPot}
+            onReservePot={openReservePot}
           />
-          {extMonthKeys.map((monthKey) => {
-            const colId = `month:${monthKey}`;
-            const cap =
-              overview.monthBudgets.find((row) => row.monthKey === monthKey)
-                ?.capAmount ?? 0;
-            const totalMonth = overview.totalsByMonth[monthKey] ?? 0;
-            const subtitle =
-              cap > 0 ? `${brl.format(totalMonth)} · teto ${brl.format(cap)}` : `${brl.format(totalMonth)}`;
-            const overMonth = overview.overCapByMonth[monthKey] ?? false;
-            return (
-              <WishlistColumn
-                key={colId}
-                id={colId}
-                title={formatMonthKeyLabel(monthKey)}
-                subtitle={subtitle}
-                items={items.filter(
-                  (row) => columnIdForItem(row, extMonthKeys) === colId,
-                )}
-                monthOverCap={overMonth}
-                onEdit={openEdit}
-              />
-            );
-          })}
+          <WishlistColumn
+            id="focus"
+            title="Mês foco"
+            subtitle={`${formatMonthKeyLabel(selectedMonthKey)} · ${brl.format(totalSelected)}${capForSelected > 0 ? ` · teto ${brl.format(capForSelected)}` : ""}`}
+            items={items.filter((row) => columnIdForItem(row, selectedMonthKey) === "focus")}
+            monthOverCap={overSelected}
+            freeToSpend={freeHint}
+            plannedTotal={totalSelected}
+            suggestOptions={suggestOptions}
+            potNameById={potNameById}
+            goalNameById={goalNameById}
+            onEdit={openEdit}
+            onLinkPot={openLinkPot}
+            onReservePot={openReservePot}
+          />
           <WishlistColumn
             id="archive"
             title="Arquivo"
             subtitle="Comprados e cancelados"
-            items={items.filter(
-              (row) => columnIdForItem(row, extMonthKeys) === "archive",
-            )}
+            items={items.filter((row) => columnIdForItem(row, selectedMonthKey) === "archive")}
             monthOverCap={false}
+            freeToSpend={freeHint}
+            plannedTotal={totalSelected}
+            suggestOptions={suggestOptions}
+            potNameById={potNameById}
+            goalNameById={goalNameById}
             onEdit={openEdit}
+            onLinkPot={openLinkPot}
+            onReservePot={openReservePot}
           />
         </div>
       </DndContext>
@@ -551,6 +739,7 @@ export function WishlistBoard({ overview }: { overview: WishlistOverview }) {
         monthKeys={extMonthKeys}
         onSaved={refresh}
         onPurchasedOpenFinance={openFinanceFromPurchase}
+        onPurchasedOpenInstallment={openInstallmentFromPurchase}
       />
 
       <MonthBudgetDialog
@@ -565,10 +754,20 @@ export function WishlistBoard({ overview }: { overview: WishlistOverview }) {
 
       <TransactionDialog
         open={financeOpen}
-        onClose={() => setFinanceOpen(false)}
-        accounts={overview.accounts}
-        onSaved={() => {
+        onClose={() => {
           setFinanceOpen(false);
+          setPendingWishlistItemId(null);
+        }}
+        accounts={overview.accounts}
+        onSaved={(transactionId) => {
+          setFinanceOpen(false);
+          if (pendingWishlistItemId && transactionId) {
+            void linkWishlistAfterFinance(pendingWishlistItemId, {
+              transactionId,
+            });
+            toast.success("Compra registrada e vinculada.");
+          }
+          setPendingWishlistItemId(null);
           refresh();
         }}
         prefilledDefaults={
@@ -579,10 +778,42 @@ export function WishlistBoard({ overview }: { overview: WishlistOverview }) {
                 category: prefill.category,
                 notes: prefill.notes,
                 type: "expense",
+                wishlistItemId: prefill.wishlistItemId,
               }
             : null
         }
         prefillRevision={prefillRevision}
+      />
+
+      <InstallmentDialog
+        open={installmentOpen}
+        onClose={() => {
+          setInstallmentOpen(false);
+          setPendingWishlistItemId(null);
+        }}
+        accounts={overview.accounts}
+        onSaved={(planId) => {
+          setInstallmentOpen(false);
+          if (pendingWishlistItemId && planId) {
+            void linkWishlistAfterFinance(pendingWishlistItemId, {
+              installmentPlanId: planId,
+            });
+            toast.success("Parcelamento vinculado ao item.");
+          }
+          setPendingWishlistItemId(null);
+          refresh();
+        }}
+        prefilledDefaults={
+          installmentPrefill
+            ? {
+                title: installmentPrefill.title,
+                totalAmount: installmentPrefill.totalAmount,
+                category: installmentPrefill.category,
+                notes: installmentPrefill.notes,
+              }
+            : null
+        }
+        prefillRevision={installmentRevision}
       />
     </motion.div>
   );

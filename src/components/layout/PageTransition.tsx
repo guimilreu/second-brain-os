@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { usePathname } from "next/navigation";
 import { springPage } from "@/lib/motion/spring";
 
@@ -10,6 +10,11 @@ type PageTransitionProps = {
 
 export function PageTransition({ children }: PageTransitionProps) {
   const pathname = usePathname();
+  const reduce = useReducedMotion();
+
+  if (reduce) {
+    return <div className="min-h-[1px]">{children}</div>;
+  }
 
   return (
     <motion.div

@@ -9,8 +9,13 @@ export const metadata = {
   title: "Tarefas",
 };
 
-export default async function TasksPage() {
+type TasksPageProps = {
+  searchParams: Promise<{ project?: string }>;
+};
+
+export default async function TasksPage({ searchParams }: TasksPageProps) {
   const user = await requireCurrentUser();
+  const { project } = await searchParams;
   const data = await getTasksOverview(user.userId);
 
   return (
@@ -39,7 +44,7 @@ export default async function TasksPage() {
         }
       />
       <Reveal delay={0.03}>
-        <TasksBoard {...data} />
+        <TasksBoard {...data} initialProjectId={project ?? null} />
       </Reveal>
     </div>
   );

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { toast } from "sonner";
+import { Trash2 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import {
   FormActions,
@@ -13,8 +14,12 @@ import {
 } from "@/components/ui/FormField";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { FINANCE_TRANSACTION_CATEGORIES } from "@/features/finance/lib/categories";
 import type { WishlistOverviewItem } from "@/features/wishlist/lib/types";
+
+type LinkOption = { id: string; label: string };
 
 type WishlistItemDialogProps = {
   open: boolean;
@@ -23,8 +28,16 @@ type WishlistItemDialogProps = {
   monthKeys: string[];
   onSaved: () => void;
   onPurchasedOpenFinance?: (payload: {
+    wishlistItemId: string;
     title: string;
     amount: number;
+    category: string;
+    notes?: string;
+  }) => void;
+  onPurchasedOpenInstallment?: (payload: {
+    wishlistItemId: string;
+    title: string;
+    totalAmount: number;
     category: string;
     notes?: string;
   }) => void;
@@ -37,7 +50,9 @@ export function WishlistItemDialog({
   monthKeys,
   onSaved,
   onPurchasedOpenFinance,
+  onPurchasedOpenInstallment,
 }: WishlistItemDialogProps) {
+  const confirm = useConfirm();
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
   const [url, setUrl] = useState("");
@@ -47,8 +62,29 @@ export function WishlistItemDialog({
   const [status, setStatus] = useState<string>("idea");
   const [estimatedPrice, setEstimatedPrice] = useState(0);
   const [actualPrice, setActualPrice] = useState<number | "">("");
+  const [savingsPotId, setSavingsPotId] = useState("");
+  const [financialGoalId, setFinancialGoalId] = useState("");
   const [openFinanceAfter, setOpenFinanceAfter] = useState(false);
+  const [openInstallmentAfter, setOpenInstallmentAfter] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [pots, setPots] = useState<LinkOption[]>([]);
+  const [goals, setGoals] = useState<LinkOption[]>([]);
+
+  useEffect(() => {
+    if (!open) return;
+    void (async () => {
+      try {
+        const [potsRes, goalsRes] = await Promise.all([
+          axios.get<{ data: { id: string; name: string }[] }>("/api/finance/savings-pots"),
+          axios.get<{ data: { id: string; name: string }[] }>("/api/finance/goals"),
+        ]);
+        setPots(potsRes.data.data.map((row) => ({ id: row.id, label: row.name })));
+        setGoals(goalsRes.data.data.map((row) => ({ id: row.id, label: row.name })));
+      } catch {
+        /* optional pickers */
+      }
+    })();
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -67,6 +103,8 @@ export function WishlistItemDialog({
           ? Number(item.actualPrice)
           : "",
       );
+      setSavingsPotId(item.savingsPotId ?? "");
+      setFinancialGoalId(item.financialGoalId ?? "");
     } else {
       setTitle("");
       setNotes("");
@@ -77,10 +115,35 @@ export function WishlistItemDialog({
       setStatus("idea");
       setEstimatedPrice(0);
       setActualPrice("");
+      setSavingsPotId("");
+      setFinancialGoalId("");
     }
-    setOpenFinanceAfter(false);
+    setOpenFinanceAfter(true);
+    setOpenInstallmentAfter(false);
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [open, item, monthKeys]);
+
+  async function handleDelete() {
+    if (!item?.id) return;
+    const ok = await confirm({
+      title: "Remover desejo?",
+      description: "O item será excluído permanentemente da lista.",
+      destructive: true,
+      confirmLabel: "Remover",
+    });
+    if (!ok) return;
+    setSaving(true);
+    try {
+      await axios.delete(`/api/wishlist/items/${item.id}`);
+      toast.success("Item removido.");
+      onSaved();
+      onClose();
+    } catch {
+      toast.error("Não foi possível remover o item.");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -94,6 +157,8 @@ export function WishlistItemDialog({
         lane,
         status,
         estimatedPrice: Number(estimatedPrice),
+        savingsPotId: savingsPotId || null,
+        financialGoalId: financialGoalId || null,
       };
 
       if (lane === "planned") {
@@ -114,30 +179,44 @@ export function WishlistItemDialog({
         payload.lane = "archive";
       }
 
+      if (status === "cancelled") {
+        payload.lane = "archive";
+      }
+
+      let savedItemId = item?.id;
+
       if (item?.id) {
         await axios.patch(`/api/wishlist/items/${item.id}`, payload);
         toast.success("Item atualizado.");
       } else {
-        await axios.post("/api/wishlist/items", payload);
+        const res = await axios.post<{ data: { id: string } }>(
+          "/api/wishlist/items",
+          payload,
+        );
+        savedItemId = res.data.data.id;
         toast.success("Item criado.");
       }
 
       onSaved();
       onClose();
 
-      if (
-        status === "purchased" &&
-        openFinanceAfter &&
-        onPurchasedOpenFinance
-      ) {
+      if (status === "purchased" && savedItemId) {
         const real =
           typeof actualPrice === "number" ? actualPrice : Number(actualPrice);
-        onPurchasedOpenFinance({
+        const purchasePayload = {
+          wishlistItemId: savedItemId,
           title,
           amount: real,
+          totalAmount: real,
           category,
           notes: notes ? `Lista de desejos: ${notes}` : "Lista de desejos",
-        });
+        };
+
+        if (openInstallmentAfter && onPurchasedOpenInstallment) {
+          onPurchasedOpenInstallment(purchasePayload);
+        } else if (openFinanceAfter && onPurchasedOpenFinance) {
+          onPurchasedOpenFinance(purchasePayload);
+        }
       }
     } catch {
       toast.error("Não foi possível salvar o item.");
@@ -150,8 +229,12 @@ export function WishlistItemDialog({
     <Modal
       open={open}
       onClose={onClose}
-      title={item ? "Editar desejo" : "Novo item"}
-      description="Planeje compras conscientes com estimativa e mês-alvo."
+      title={item ? "Editar desejo" : "Novo desejo"}
+      description={
+        item
+          ? "Atualize estimativa, status ou compra."
+          : "Título e preço estimado bastam — arraste no board para planejar."
+      }
       size="lg"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -173,36 +256,33 @@ export function WishlistItemDialog({
               ))}
             </Select>
           </FormField>
-          <FormField label="Faixa / lane">
-            <Select value={lane} onChange={(event) => setLane(event.target.value)}>
-              <option value="dream">Sonhos</option>
-              <option value="planned">Planejado (mês)</option>
-              <option value="archive">Arquivo</option>
-            </Select>
-          </FormField>
-          {lane === "planned" ? (
-            <FormField label="Mês (YYYY-MM)">
-              <Select
-                value={plannedMonthKey || monthKeys[0]}
-                onChange={(event) => setPlannedMonthKey(event.target.value)}
-              >
-                {monthKeys.map((key) => (
-                  <option key={key} value={key}>
-                    {key}
-                  </option>
-                ))}
-              </Select>
-            </FormField>
+          {item ? (
+            <>
+              <FormField label="Status">
+                <Select value={status} onChange={(event) => setStatus(event.target.value)}>
+                  <option value="idea">Ideia</option>
+                  <option value="researching">Pesquisando</option>
+                  <option value="ready">Pronto pra comprar</option>
+                  <option value="purchased">Comprei</option>
+                  <option value="cancelled">Cancelado</option>
+                </Select>
+              </FormField>
+              {lane === "planned" ? (
+                <FormField label="Mês">
+                  <Select
+                    value={plannedMonthKey || monthKeys[0]}
+                    onChange={(event) => setPlannedMonthKey(event.target.value)}
+                  >
+                    {monthKeys.map((key) => (
+                      <option key={key} value={key}>
+                        {key}
+                      </option>
+                    ))}
+                  </Select>
+                </FormField>
+              ) : null}
+            </>
           ) : null}
-          <FormField label="Status">
-            <Select value={status} onChange={(event) => setStatus(event.target.value)}>
-              <option value="idea">Ideia</option>
-              <option value="researching">Pesquisando</option>
-              <option value="ready">Pronto pra comprar</option>
-              <option value="purchased">Comprei</option>
-              <option value="cancelled">Cancelado</option>
-            </Select>
-          </FormField>
           <FormField label="Preço estimado (R$)">
             <Input
               required
@@ -229,6 +309,32 @@ export function WishlistItemDialog({
               />
             </FormField>
           ) : null}
+          <FormField label="Cofrinho (opcional)">
+            <Select
+              value={savingsPotId}
+              onChange={(event) => setSavingsPotId(event.target.value)}
+            >
+              <option value="">Nenhum</option>
+              {pots.map((pot) => (
+                <option key={pot.id} value={pot.id}>
+                  {pot.label}
+                </option>
+              ))}
+            </Select>
+          </FormField>
+          <FormField label="Meta financeira (opcional)">
+            <Select
+              value={financialGoalId}
+              onChange={(event) => setFinancialGoalId(event.target.value)}
+            >
+              <option value="">Nenhuma</option>
+              {goals.map((goal) => (
+                <option key={goal.id} value={goal.id}>
+                  {goal.label}
+                </option>
+              ))}
+            </Select>
+          </FormField>
         </div>
         <FormField label="Link (opcional)">
           <Input
@@ -246,18 +352,54 @@ export function WishlistItemDialog({
           />
         </FormField>
         {status === "purchased" ? (
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="open-finance"
-              checked={openFinanceAfter}
-              onCheckedChange={(checked) => setOpenFinanceAfter(checked === true)}
-            />
-            <Label htmlFor="open-finance" className="cursor-pointer text-sm">
-              Abrir lançamento no Financeiro (pré-preenchido, opcional)
-            </Label>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="open-finance"
+                checked={openFinanceAfter && !openInstallmentAfter}
+                onCheckedChange={(checked) => {
+                  const next = checked === true;
+                  setOpenFinanceAfter(next);
+                  if (next) setOpenInstallmentAfter(false);
+                }}
+              />
+              <Label htmlFor="open-finance" className="cursor-pointer text-sm">
+                Registrar no Financeiro após salvar
+              </Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="open-installment"
+                checked={openInstallmentAfter}
+                onCheckedChange={(checked) => {
+                  const next = checked === true;
+                  setOpenInstallmentAfter(next);
+                  if (next) setOpenFinanceAfter(false);
+                }}
+              />
+              <Label htmlFor="open-installment" className="cursor-pointer text-sm">
+                Comprei parcelado
+              </Label>
+            </div>
           </div>
         ) : null}
-        <FormActions onCancel={onClose} isLoading={saving} submitLabel="Salvar" />
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          {item ? (
+            <Button
+              type="button"
+              variant="ghost"
+              className="text-danger hover:text-danger"
+              onClick={() => void handleDelete()}
+              disabled={saving}
+            >
+              <Trash2 className="h-4 w-4" />
+              Remover
+            </Button>
+          ) : (
+            <span />
+          )}
+          <FormActions onCancel={onClose} isLoading={saving} submitLabel="Salvar" />
+        </div>
       </form>
     </Modal>
   );

@@ -24,6 +24,10 @@ const WishlistItemSchema = new Schema(
     estimatedPrice: { type: Number, required: true, min: 0, default: 0 },
     actualPrice: { type: Number, min: 0 },
     purchasedAt: { type: Date },
+    savingsPotId: { type: Schema.Types.ObjectId, ref: "SavingsPot" },
+    financialGoalId: { type: Schema.Types.ObjectId, ref: "FinancialGoal" },
+    transactionId: { type: Schema.Types.ObjectId, ref: "Transaction" },
+    installmentPlanId: { type: Schema.Types.ObjectId, ref: "InstallmentPlan" },
   },
   { timestamps: true },
 );

@@ -3,11 +3,21 @@
 import { useCallback, useEffect, useState, startTransition } from "react";
 import axios from "axios";
 import { toast } from "sonner";
+import { Briefcase, Landmark, ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { FormField, Input, Select } from "@/components/ui/FormField";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { ContentReveal } from "@/components/motion/ContentReveal";
+import { FormField, Input, Select, FormActions } from "@/components/ui/FormField";
+import { Modal } from "@/components/ui/Modal";
 import { formatCurrency } from "@/lib/utils/format";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import {
+  calculatePMT,
+  calculatePayoffDate,
+  calculatePayoffDateWithExtra,
+} from "@/features/finance/lib/debt";
+import { projectFixedIncome } from "@/features/finance/lib/investments";
 
 type Account = { id: string; name: string; type: string };
 type Investment = {
@@ -17,13 +27,16 @@ type Investment = {
   principal: number;
   currentValue: number;
   purchaseDate: string;
+  expectedRateAnnual?: number;
 };
 type Debt = {
   id: string;
   name: string;
   creditor: string;
   principal: number;
+  interestRateMonthly?: number;
   installments: number;
+  paidInstallments?: number;
   startsAt: string;
 };
 
@@ -45,6 +58,15 @@ export function InvestmentsDebtsSection() {
   const [debtPrincipal, setDebtPrincipal] = useState("");
   const [debtInstallments, setDebtInstallments] = useState("12");
   const [debtStarts, setDebtStarts] = useState(format(new Date(), "yyyy-MM-dd"));
+
+  const [movementOpen, setMovementOpen] = useState(false);
+  const [movementInvestment, setMovementInvestment] = useState<Investment | null>(null);
+  const [movementKind, setMovementKind] = useState<"deposit" | "withdraw">("deposit");
+  const [movementAmount, setMovementAmount] = useState("");
+  const [movementCounterAccount, setMovementCounterAccount] = useState("");
+  const [movementNotes, setMovementNotes] = useState("");
+  const [movementSaving, setMovementSaving] = useState(false);
+  const [extraByDebt, setExtraByDebt] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
     try {
@@ -103,6 +125,42 @@ export function InvestmentsDebtsSection() {
     }
   }
 
+  function openMovement(investment: Investment, kind: "deposit" | "withdraw") {
+    const checking = accounts.filter((a) => a.type !== "investment" && a.type !== "credit");
+    setMovementInvestment(investment);
+    setMovementKind(kind);
+    setMovementAmount("");
+    setMovementNotes("");
+    setMovementCounterAccount(checking[0]?.id ?? "");
+    setMovementOpen(true);
+  }
+
+  async function submitMovement(e: React.FormEvent) {
+    e.preventDefault();
+    if (!movementInvestment) return;
+    const amount = Number(movementAmount);
+    if (!movementCounterAccount || !amount || amount <= 0) {
+      toast.error("Informe conta e valor.");
+      return;
+    }
+    setMovementSaving(true);
+    try {
+      await axios.post(`/api/finance/investments/${movementInvestment.id}/movements`, {
+        kind: movementKind,
+        amount,
+        counterAccountId: movementCounterAccount,
+        notes: movementNotes,
+      });
+      toast.success(movementKind === "deposit" ? "Aporte registrado." : "Resgate registrado.");
+      setMovementOpen(false);
+      void load();
+    } catch {
+      toast.error("Falha ao registrar movimentação.");
+    } finally {
+      setMovementSaving(false);
+    }
+  }
+
   async function addDebt(e: React.FormEvent) {
     e.preventDefault();
     if (!debtName.trim()) {
@@ -127,17 +185,13 @@ export function InvestmentsDebtsSection() {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="grid gap-6 lg:grid-cols-2">
-        {[1, 2].map((i) => (
-          <div key={i} className="h-80 animate-pulse rounded-3xl border border-border bg-card" />
-        ))}
-      </div>
-    );
-  }
-
   return (
+    <ContentReveal
+      loading={loading}
+      skeleton="block"
+      count={2}
+      skeletonClassName="grid gap-6 lg:grid-cols-2"
+    >
     <div className="grid gap-6 lg:grid-cols-2">
       <div className="space-y-4">
         <form onSubmit={(ev) => void addInvestment(ev)} className="rounded-3xl border border-border bg-card p-6 shadow-paper-sm">
@@ -196,19 +250,63 @@ export function InvestmentsDebtsSection() {
         </form>
         <div className="rounded-3xl border border-border bg-card p-6 shadow-paper-sm">
           <p className="text-sm font-semibold">Posições</p>
+          {investments.length === 0 ? (
+            <EmptyState
+              icon={Briefcase}
+              title="Nenhum investimento"
+              description="Registre ativos para acompanhar posição e projeções."
+            />
+          ) : (
           <ul className="mt-3 space-y-2 text-sm">
-            {investments.map((x) => (
-              <li key={x.id} className="flex justify-between gap-2 rounded-xl bg-surface-soft px-3 py-2">
-                <span>{x.name}</span>
-                <span className="text-muted-foreground">
-                  {formatCurrency(Number(x.currentValue))}
-                </span>
-              </li>
-            ))}
-            {!investments.length ? (
-              <li className="text-muted-foreground">Nenhum investimento cadastrado.</li>
-            ) : null}
+            {investments.map((x) => {
+              const isFixed = x.assetClass === "fixed-income";
+              const rateAnnual = Number(x.expectedRateAnnual ?? 0);
+              const rateMonthly = rateAnnual > 0 ? rateAnnual / 12 / 100 : 0;
+              const projected12 =
+                isFixed && rateMonthly > 0
+                  ? projectFixedIncome(Number(x.currentValue || x.principal), rateMonthly, 12)
+                  : null;
+              return (
+                <li key={x.id} className="rounded-xl bg-surface-soft px-3 py-2">
+                  <div className="flex justify-between gap-2">
+                    <span>{x.name}</span>
+                    <span className="text-muted-foreground">
+                      {formatCurrency(Number(x.currentValue))}
+                    </span>
+                  </div>
+                  {projected12 !== null ? (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Projeção 12m ({rateAnnual.toFixed(1)}% a.a.):{" "}
+                      {formatCurrency(projected12)}
+                    </p>
+                  ) : null}
+                  <div className="mt-2 flex gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-7 rounded-xl text-xs"
+                      onClick={() => openMovement(x, "deposit")}
+                    >
+                      <ArrowUpRight className="mr-1 h-3 w-3" />
+                      Aportar
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-7 rounded-xl text-xs"
+                      onClick={() => openMovement(x, "withdraw")}
+                    >
+                      <ArrowDownLeft className="mr-1 h-3 w-3" />
+                      Resgatar
+                    </Button>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
+          )}
         </div>
       </div>
 
@@ -253,25 +351,131 @@ export function InvestmentsDebtsSection() {
         </form>
         <div className="rounded-3xl border border-border bg-card p-6 shadow-paper-sm">
           <p className="text-sm font-semibold">Dívidas</p>
+          {debts.length === 0 ? (
+            <EmptyState
+              icon={Landmark}
+              title="Nenhuma dívida"
+              description="Cadastre financiamentos para simular parcelas e quitação."
+            />
+          ) : (
           <ul className="mt-3 space-y-2 text-sm">
-            {debts.map((x) => (
-              <li key={x.id} className="rounded-xl bg-surface-soft px-3 py-2">
-                <div className="flex justify-between gap-2">
-                  <span className="font-medium">{x.name}</span>
-                  <span>{formatCurrency(Number(x.principal))}</span>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {x.installments} parcelas · início{" "}
-                  {format(new Date(x.startsAt), "dd/MM/yyyy", { locale: ptBR })}
-                </p>
-              </li>
-            ))}
-            {!debts.length ? (
-              <li className="text-muted-foreground">Nenhuma dívida cadastrada.</li>
-            ) : null}
+            {debts.map((x) => {
+              const rate = Number(x.interestRateMonthly ?? 0);
+              const remaining = Math.max(
+                Number(x.installments) - Number(x.paidInstallments ?? 0),
+                0,
+              );
+              const pmt =
+                remaining > 0
+                  ? calculatePMT(Number(x.principal), rate, Number(x.installments))
+                  : 0;
+              const payoff = calculatePayoffDate(new Date(x.startsAt), Number(x.installments));
+              const extraRaw = extraByDebt[x.id] ?? "";
+              const extra = Number(extraRaw) || 0;
+              const payoffWithExtra =
+                extra > 0 && pmt > 0
+                  ? calculatePayoffDateWithExtra(
+                      new Date(x.startsAt),
+                      Number(x.principal),
+                      rate,
+                      pmt,
+                      extra,
+                    )
+                  : null;
+              return (
+                <li key={x.id} className="rounded-xl bg-surface-soft px-3 py-2">
+                  <div className="flex justify-between gap-2">
+                    <span className="font-medium">{x.name}</span>
+                    <span>{formatCurrency(Number(x.principal))}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {x.installments} parcelas · início{" "}
+                    {format(new Date(x.startsAt), "dd/MM/yyyy", { locale: ptBR })}
+                  </p>
+                  {pmt > 0 ? (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Parcela ≈ {formatCurrency(pmt)}
+                      {rate > 0 ? ` (${(rate * 100).toFixed(2)}%/mês)` : ""}
+                      {" · "}quita em {format(payoff, "MMM yyyy", { locale: ptBR })}
+                    </p>
+                  ) : null}
+                  {pmt > 0 ? (
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <span className="text-xs text-muted-foreground">E se pagar R$</span>
+                      <Input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        className="h-8 w-24 text-xs"
+                        placeholder="0"
+                        value={extraRaw}
+                        onChange={(e) =>
+                          setExtraByDebt((prev) => ({ ...prev, [x.id]: e.target.value }))
+                        }
+                      />
+                      <span className="text-xs text-muted-foreground">extra/mês</span>
+                      {payoffWithExtra ? (
+                        <span className="text-xs font-medium text-brand">
+                          → quita em {format(payoffWithExtra, "MMM yyyy", { locale: ptBR })}
+                        </span>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </li>
+              );
+            })}
           </ul>
+          )}
         </div>
       </div>
+
+      <Modal
+        open={movementOpen}
+        onClose={() => setMovementOpen(false)}
+        title={movementKind === "deposit" ? "Aportar no investimento" : "Resgatar investimento"}
+      >
+        <form onSubmit={submitMovement} className="space-y-4">
+          {movementInvestment ? (
+            <p className="text-sm text-muted-foreground">
+              {movementInvestment.name} · saldo {formatCurrency(Number(movementInvestment.currentValue))}
+            </p>
+          ) : null}
+          <FormField label={movementKind === "deposit" ? "Conta origem" : "Conta destino"}>
+            <Select
+              value={movementCounterAccount}
+              onChange={(e) => setMovementCounterAccount(e.target.value)}
+            >
+              <option value="">Selecione</option>
+              {accounts
+                .filter((a) => a.type !== "investment" && a.type !== "credit")
+                .map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                  </option>
+                ))}
+            </Select>
+          </FormField>
+          <FormField label="Valor (R$)">
+            <Input
+              required
+              type="number"
+              step="0.01"
+              min="0.01"
+              value={movementAmount}
+              onChange={(e) => setMovementAmount(e.target.value)}
+            />
+          </FormField>
+          <FormField label="Observações">
+            <Input value={movementNotes} onChange={(e) => setMovementNotes(e.target.value)} />
+          </FormField>
+          <FormActions
+            onCancel={() => setMovementOpen(false)}
+            isLoading={movementSaving}
+            submitLabel={movementKind === "deposit" ? "Aportar" : "Resgatar"}
+          />
+        </form>
+      </Modal>
     </div>
+    </ContentReveal>
   );
 }

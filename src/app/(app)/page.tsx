@@ -1,426 +1,168 @@
-import { differenceInCalendarDays, endOfMonth, format } from "date-fns";
-import { ptBR } from "date-fns/locale";
-import { ArrowDownLeft, ArrowUpRight, Landmark, ListTodo, NotebookPen, Sparkles } from "lucide-react";
+import { differenceInCalendarDays, endOfMonth, format, isSameDay } from "date-fns";
 import Link from "next/link";
-import { MetricCard } from "@/components/ui/MetricCard";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Reveal } from "@/components/motion/Reveal";
 import { getFinanceOverview } from "@/features/finance/lib/data";
-import { getNotesCount } from "@/features/notes/lib/data";
 import { getTasksOverview } from "@/features/tasks/lib/data";
+import { getWishlistOverview } from "@/features/wishlist/lib/data";
+import { formatFinanceAlertMessage } from "@/features/today/lib/format";
+import {
+  PurchasesWidget,
+  SprintBar,
+  TodayInbox,
+} from "@/features/today/components/TodayPanels";
 import { requireCurrentUser } from "@/lib/auth/current-user";
 import { formatCurrency } from "@/lib/utils/format";
-import { cn } from "@/lib/utils/cn";
 
-export const metadata = { title: "Dashboard — Second Brain OS" };
+export const metadata = { title: "Hoje — Second Brain OS" };
 
 export default async function DashboardPage() {
   const user = await requireCurrentUser();
-  const [finance, tasks, notesCount] = await Promise.all([
+  const monthKey = format(new Date(), "yyyy-MM");
+  const today = new Date();
+
+  const [finance, tasks, wishlist] = await Promise.all([
     getFinanceOverview(user.userId),
     getTasksOverview(user.userId),
-    getNotesCount(user.userId),
+    getWishlistOverview(user.userId),
   ]);
 
   const doneTasks = tasks.tasks.filter((t) => t.status === "done").length;
   const totalTasks = tasks.tasks.length;
   const sprintProgress = totalTasks ? Math.round((doneTasks / totalTasks) * 100) : 0;
-  const daysLeft = Math.max(differenceInCalendarDays(endOfMonth(new Date()), new Date()) + 1, 1);
+  const daysLeft = Math.max(differenceInCalendarDays(endOfMonth(today), today) + 1, 1);
   const dailyBudget = finance.forecast.freeToSpend / daysLeft;
-  const upcomingMoney = finance.forecast.upcomingOccurrences.slice(0, 4);
-  const lateMoney = finance.forecast.lateOccurrences.slice(0, 3);
-  const averageMonthlyNet =
-    finance.monthlyHistory.length > 0
-      ? finance.monthlyHistory.reduce((total, month) => total + month.net, 0) /
-        finance.monthlyHistory.length
-      : 0;
 
-  const recentTransactions = finance.transactions.slice(0, 5);
+  const planned =
+    wishlist.totalsByMonth[monthKey] ?? 0;
+  const cap =
+    wishlist.monthBudgets.find((b) => b.monthKey === monthKey)?.capAmount ?? 0;
+  const freeHint =
+    wishlist.financeHints.find((h) => h.monthKey === monthKey)?.freeToSpend ??
+    finance.forecast.freeToSpend;
 
-  const topGoals = [...finance.savingsPots, ...finance.goals]
-    .filter((g) => Number(g.targetAmount) > 0)
-    .slice(0, 3);
+  const readyItems = wishlist.items
+    .filter(
+      (i) =>
+        i.status === "ready" &&
+        i.lane === "planned" &&
+        String(i.plannedMonthKey) === monthKey,
+    )
+    .slice(0, 2)
+    .map((i) => ({
+      id: String(i.id),
+      title: String(i.title),
+      estimatedPrice: Number(i.estimatedPrice ?? 0),
+    }));
 
-  const urgentTasks = tasks.tasks
-    .filter((t) => t.status !== "done" && (t.priority === "critical" || t.priority === "high"))
-    .slice(0, 3);
+  const inboxItems: Parameters<typeof TodayInbox>[0]["items"] = [];
+
+  for (const occ of finance.forecast.lateOccurrences.slice(0, 2)) {
+    inboxItems.push({
+      kind: "recurring-late",
+      id: `late-${occ.ruleId}-${occ.date}`,
+      title: occ.title,
+      date: occ.date instanceof Date ? occ.date.toISOString() : String(occ.date),
+      ruleId: occ.ruleId,
+      amount: occ.amount,
+      type: occ.type as "income" | "expense",
+      category: occ.category,
+    });
+  }
+
+  for (const inv of finance.invoiceSummaries ?? []) {
+    const daysUntilDue = Math.ceil(
+      (new Date(inv.dueDate).getTime() - today.getTime()) / 86400000,
+    );
+    if (daysUntilDue <= 5 && daysUntilDue >= 0 && inv.remaining > 0) {
+      inboxItems.push({
+        kind: "invoice-due",
+        id: `invoice-${inv.accountId}`,
+        accountName: inv.accountName,
+        remaining: inv.remaining,
+        dueDate: inv.dueDate,
+      });
+      break;
+    }
+  }
+
+  for (const alert of finance.financeAlerts.filter((a) => !a.acknowledgedAt).slice(0, 2)) {
+    inboxItems.push({
+      kind: "alert",
+      id: String(alert.id),
+      message: formatFinanceAlertMessage(
+        String(alert.kind),
+        (alert.payload as Record<string, unknown>) ?? {},
+      ),
+      href: "/finance",
+    });
+  }
+
+  const urgentToday = tasks.tasks.filter(
+    (t) =>
+      t.status !== "done" &&
+      (t.priority === "critical" || t.priority === "high") &&
+      (!t.plannedFor || isSameDay(new Date(String(t.plannedFor)), today)),
+  );
+  for (const task of urgentToday.slice(0, 2)) {
+    inboxItems.push({
+      kind: "task",
+      id: String(task.id),
+      title: String(task.title),
+      priority: String(task.priority),
+    });
+  }
+
+  if (planned > freeHint) {
+    inboxItems.push({
+      kind: "wishlist-over",
+      message: `Lista de compras (${formatCurrency(planned)}) excede o livre (${formatCurrency(freeHint)}).`,
+    });
+  }
 
   return (
     <div className="space-y-8">
       <PageHeader
-        eyebrow={`Bom dia, ${user.name.split(" ")[0]}`}
-        title="Seu cockpit pessoal."
-        description="Finanças, tarefas e objetivos — tudo num só lugar."
+        eyebrow={`Olá, ${user.name.split(" ")[0]}`}
+        title="Hoje."
+        description="Uma decisão, uma inbox, ação rápida."
       />
 
       <Reveal>
-        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-          <MetricCard
-            title="Saldo total"
-            value={formatCurrency(finance.totalBalance)}
-            detail={`${finance.accounts.length} conta${finance.accounts.length !== 1 ? "s" : ""}`}
-            icon="landmark"
-            trend="neutral"
-            index={0}
-          />
-          <MetricCard
-            title="Livre para gastar"
-            value={formatCurrency(finance.forecast.freeToSpend)}
-            detail="Após recorrências"
-            trend={finance.forecast.freeToSpend >= 0 ? "up" : "down"}
-            icon="trending-up"
-            index={1}
-          />
-          <MetricCard
-            title="Sprint atual"
-            value={`${doneTasks}/${totalTasks} tarefas`}
-            detail={`${sprintProgress}% concluído`}
-            trend={sprintProgress >= 50 ? "up" : "neutral"}
-            icon="check-circle"
-            index={2}
-          />
-          <MetricCard
-            title="Objetivos"
-            value={`${topGoals.length} ativa${topGoals.length !== 1 ? "s" : ""}`}
-            detail="Cofrinhos + metas"
-            icon="target"
-            trend="neutral"
-            index={3}
-          />
-        </div>
-      </Reveal>
-
-      <Reveal delay={0.04}>
-        <div className="grid gap-6 xl:grid-cols-[1.35fr_0.65fr]">
-        <section className="paper-sheet rounded-[2.25rem] p-6 md:p-8 xl:row-span-2">
-          <div className="grid gap-7 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Decisão de hoje</p>
-              <h2 className="font-heading mt-2 text-4xl font-bold tracking-[-0.04em] text-paper-ink">
-                {formatCurrency(dailyBudget)} por dia até virar o mês.
-              </h2>
-              <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                Depois de entradas previstas, saídas recorrentes e{" "}
-                {formatCurrency(finance.forecast.allocationAmount)} separados para cofrinhos.
-              </p>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="paper-note rounded-3xl p-4">
-                <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Livre</p>
-                <p className="mt-2 text-xl font-semibold">
-                  {formatCurrency(finance.forecast.freeToSpend)}
-                </p>
-              </div>
-              <div className="paper-note rounded-3xl p-4">
-                <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Atrasado</p>
-                <p className="mt-2 text-xl font-semibold text-warning">
-                  {formatCurrency(finance.forecast.lateIncome + finance.forecast.lateExpenses)}
-                </p>
-              </div>
-              <div className="paper-note rounded-3xl p-4">
-                <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Média 6m</p>
-                <p
-                  className={cn(
-                    "mt-2 text-xl font-semibold",
-                    averageMonthlyNet >= 0 ? "text-success" : "text-danger",
-                  )}
-                >
-                  {formatCurrency(averageMonthlyNet)}
-                </p>
-              </div>
-              <div className="paper-note rounded-3xl p-4">
-                <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Livre 12m</p>
-                <p
-                  className={cn(
-                    "mt-2 text-xl font-semibold",
-                    finance.projectionCheckpoints.twelveMonths >= 0
-                      ? "text-success"
-                      : "text-danger",
-                  )}
-                >
-                  {formatCurrency(finance.projectionCheckpoints.twelveMonths)}
-                </p>
-              </div>
-              <div className="paper-note rounded-3xl p-4 sm:col-span-2">
-                <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Sprint</p>
-                <p className="mt-2 text-xl font-semibold">{sprintProgress}%</p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="paper-note rounded-[1.75rem] p-6">
-          <div className="mb-5 flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">Financeiro</p>
-              <h2 className="text-xl font-semibold">Últimas transações</h2>
-            </div>
-            <Link
-              href="/finance"
-              className="link-button rounded-2xl px-4 py-2 text-sm font-medium"
-            >
-              Ver tudo
+        <section className="paper-sheet rounded-[2.25rem] p-6 md:p-8">
+          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+            Decisão do dia
+          </p>
+          <h2 className="font-heading mt-2 text-3xl font-bold tracking-[-0.04em] text-paper-ink md:text-4xl">
+            {formatCurrency(dailyBudget)} por dia até virar o mês.
+          </h2>
+          <p className="mt-3 text-sm text-muted-foreground">
+            Livre para gastar: {formatCurrency(finance.forecast.freeToSpend)} ·{" "}
+            <Link href="/finance" className="text-brand hover:underline">
+              Ver dinheiro
             </Link>
-          </div>
-          {recentTransactions.length === 0 ? (
-            <div className="rounded-2xl bg-surface-soft/70 p-6 text-center">
-              <p className="text-sm text-muted-foreground">Nenhuma transação ainda.</p>
-              <Link href="/finance" className="mt-2 text-sm text-brand transition-colors duration-200 hover:text-primary-strong hover:underline">
-                Registrar primeira transação →
-              </Link>
-            </div>
-          ) : (
-            <div className="space-y-1">
-              {recentTransactions.map((t) => (
-                <div
-                  key={String(t.id)}
-                  className="paper-row flex items-center gap-4 rounded-2xl px-4 py-3 transition-colors duration-200 hover:bg-surface-soft/70"
-                >
-                  <div
-                    className={cn(
-                      "rounded-xl p-2",
-                      t.type === "income" ? "bg-emerald-500/10" : "bg-red-500/10",
-                    )}
-                  >
-                    {t.type === "income" ? (
-                      <ArrowUpRight className="h-4 w-4 text-success" />
-                    ) : (
-                      <ArrowDownLeft className="h-4 w-4 text-danger" />
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{String(t.title)}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {String(t.category)} ·{" "}
-                      {format(new Date(String(t.occurredAt)), "dd MMM", { locale: ptBR })}
-                    </p>
-                  </div>
-                  <p
-                    className={cn(
-                      "text-sm font-semibold tabular-nums",
-                      t.type === "income" ? "text-success" : "text-danger",
-                    )}
-                  >
-                    {t.type === "income" ? "+" : "−"}
-                    {formatCurrency(Number(t.amount))}
-                  </p>
-                </div>
-              ))}
-            </div>
-          )}
+          </p>
         </section>
-
-        <div className="space-y-6">
-          <section className="paper-note rounded-[1.75rem] p-6">
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Agenda financeira</p>
-                <h2 className="text-xl font-semibold">Próximos movimentos</h2>
-              </div>
-              <Link
-                href="/finance"
-                className="link-button rounded-2xl px-4 py-2 text-sm font-medium"
-              >
-                Ver mês
-              </Link>
-            </div>
-            {lateMoney.length ? (
-              <div className="mb-3 rounded-2xl bg-warning/10 p-3 text-sm text-warning">
-                {lateMoney.length} recorrência{lateMoney.length !== 1 ? "s" : ""} precisa{lateMoney.length === 1 ? "" : "m"} de atenção.
-              </div>
-            ) : null}
-            {upcomingMoney.length ? (
-              <div className="space-y-2">
-                {upcomingMoney.map((event) => (
-                  <div
-                    key={`${event.ruleId}-${event.date.toISOString()}`}
-                    className="paper-row flex items-center justify-between gap-3 rounded-2xl px-4 py-3"
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{event.title}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {format(event.date, "dd MMM", { locale: ptBR })} · {event.category}
-                      </p>
-                    </div>
-                    <p
-                      className={cn(
-                        "text-sm font-semibold tabular-nums",
-                        event.type === "income" ? "text-success" : "text-danger",
-                      )}
-                    >
-                      {event.type === "income" ? "+" : "−"}
-                      {formatCurrency(event.amount)}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="rounded-2xl bg-surface-soft/70 p-4 text-sm text-muted-foreground">
-                Cadastre recorrências para o cockpit antecipar o mês.
-              </p>
-            )}
-          </section>
-
-          <section className="paper-note rounded-[1.75rem] p-6">
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Tarefas</p>
-                <h2 className="text-xl font-semibold">Prioridade alta</h2>
-              </div>
-              <Link
-                href="/tasks"
-                className="link-button rounded-2xl px-4 py-2 text-sm font-medium"
-              >
-                Ver sprint
-              </Link>
-            </div>
-            {urgentTasks.length === 0 ? (
-              <div className="rounded-2xl bg-surface-soft/70 p-4 text-center">
-                <p className="text-sm text-muted-foreground">
-                  {totalTasks === 0
-                    ? "Nenhuma tarefa esta semana."
-                    : "Nenhuma tarefa urgente. Ótimo!"}
-                </p>
-                <Link href="/tasks" className="mt-1 text-sm text-brand transition-colors duration-200 hover:text-primary-strong hover:underline">
-                  {totalTasks === 0 ? "Planejar sprint →" : "Ver todas as tarefas →"}
-                </Link>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {urgentTasks.map((task) => {
-                  const projectName =
-                    task.projectId && typeof task.projectId === "object"
-                      ? String((task.projectId as Record<string, unknown>).name ?? "")
-                      : null;
-                  return (
-                    <div
-                      key={String(task.id)}
-                      className="paper-row flex items-start gap-3 rounded-2xl px-4 py-3"
-                    >
-                      <div
-                        className={cn(
-                          "mt-0.5 h-2 w-2 shrink-0 rounded-full",
-                          task.priority === "critical" ? "bg-danger" : "bg-warning",
-                        )}
-                      />
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium">{String(task.title)}</p>
-                        {projectName ? (
-                          <p className="text-xs text-muted-foreground">{projectName}</p>
-                        ) : null}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </section>
-
-          {/* Goals progress */}
-          {topGoals.length > 0 ? (
-            <section className="paper-note rounded-[1.75rem] p-6">
-              <div className="mb-4 flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Objetivos</p>
-                  <h2 className="text-xl font-semibold">Progresso</h2>
-                </div>
-                <Link
-                  href="/finance"
-                  className="link-button rounded-2xl px-4 py-2 text-sm font-medium"
-                >
-                  Gerenciar
-                </Link>
-              </div>
-              <div className="space-y-4">
-                {topGoals.map((item) => {
-                  const current = Number(item.currentAmount);
-                  const target = Number(item.targetAmount);
-                  const progress = target > 0 ? Math.min((current / target) * 100, 100) : 0;
-                  return (
-                    <div key={String(item.id)}>
-                      <div className="mb-1.5 flex justify-between text-sm">
-                        <span className="font-medium">{String(item.name)}</span>
-                        <span className="text-muted-foreground">{Math.round(progress)}%</span>
-                      </div>
-                      <div className="h-2 overflow-hidden rounded-full bg-surface-soft">
-                        <div
-                          className="h-full rounded-full bg-brand transition-all"
-                          style={{ width: `${progress}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-          ) : null}
-        </div>
-      </div>
       </Reveal>
 
-      <Reveal delay={0.07}>
-      <div className="grid gap-4 lg:grid-cols-3">
-        {[
-          {
-            href: "/finance",
-            icon: Landmark,
-            title: "Financeiro",
-            description: `${finance.accounts.length} conta${finance.accounts.length !== 1 ? "s" : ""} · ${formatCurrency(finance.totalBalance)} em saldo`,
-            cta: "Abrir financeiro",
-          },
-          {
-            href: "/tasks",
-            icon: ListTodo,
-            title: "Tarefas",
-            description: `${totalTasks} tarefa${totalTasks !== 1 ? "s" : ""} esta semana · ${sprintProgress}% concluído`,
-            cta: "Ver sprint",
-          },
-          {
-            href: "/notes",
-            icon: NotebookPen,
-            title: "Anotações",
-            description: `${notesCount} nota${notesCount !== 1 ? "s" : ""} · blocos, markdown e cores`,
-            cta: "Abrir anotações",
-          },
-        ].map((area) => {
-          const Icon = area.icon;
-          return (
-            <Link
-              key={area.href}
-              href={area.href}
-              className="paper-note interactive-card group rounded-[1.75rem] p-5"
-            >
-              <div className="flex items-start justify-between gap-6">
-                <div className="rounded-3xl bg-brand-soft p-4 text-brand">
-                  <Icon className="h-7 w-7" />
-                </div>
-                <span className="rounded-full bg-surface-soft px-3 py-1 text-sm text-muted-foreground transition group-hover:bg-brand group-hover:text-primary-foreground">
-                  {area.cta}
-                </span>
-              </div>
-              <h2 className="font-heading mt-6 text-2xl font-bold tracking-[-0.03em]">{area.title}</h2>
-              <p className="mt-2 text-sm text-muted-foreground">{area.description}</p>
-            </Link>
-          );
-        })}
-      </div>
+      <Reveal delay={0.03}>
+        <div className="grid gap-6 lg:grid-cols-2">
+          <section className="paper-note rounded-[1.75rem] p-6">
+            <h2 className="font-heading mb-4 text-xl font-bold tracking-[-0.03em]">Inbox</h2>
+            <TodayInbox items={inboxItems} />
+          </section>
+          <PurchasesWidget
+            monthKey={monthKey}
+            planned={planned}
+            cap={cap}
+            freeToSpend={freeHint}
+            readyItems={readyItems}
+          />
+        </div>
       </Reveal>
 
-      <Reveal delay={0.09}>
-      <section className="paper-note rounded-[1.75rem] p-6">
-        <div className="flex items-center gap-3">
-          <div className="rounded-2xl bg-brand-soft p-3 text-brand">
-            <Sparkles className="h-5 w-5" />
-          </div>
-          <div>
-            <p className="font-semibold">Um OS que cresce com você</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Hábitos, calendário, CRM pessoal e health tracking estão a caminho.
-              A arquitetura já está pronta para expandir.
-            </p>
-          </div>
-        </div>
-      </section>
+      <Reveal delay={0.05}>
+        <SprintBar done={doneTasks} total={totalTasks} progress={sprintProgress} />
       </Reveal>
     </div>
   );

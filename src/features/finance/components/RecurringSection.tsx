@@ -5,7 +5,10 @@ import axios from "axios";
 import { toast } from "sonner";
 import { CalendarClock, Pencil, Plus, Trash2 } from "lucide-react";
 import { RecurringRuleDialog } from "@/features/finance/components/dialogs/RecurringRuleDialog";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { ContentReveal } from "@/components/motion/ContentReveal";
 import { formatCurrency } from "@/lib/utils/format";
 import { cn } from "@/lib/utils/cn";
 
@@ -47,6 +50,7 @@ function monthlyEstimate(rule: RecurringRule) {
 }
 
 export function RecurringSection() {
+  const confirm = useConfirm();
   const [rules, setRules] = useState<RecurringRule[]>([]);
   const [pots, setPots] = useState<SavingsPot[]>([]);
   const [loading, setLoading] = useState(true);
@@ -75,7 +79,12 @@ export function RecurringSection() {
   }, [fetchAll]);
 
   async function handleDelete(id: string) {
-    if (!confirm("Remover esta recorrência?")) return;
+    const ok = await confirm({
+      title: "Remover recorrência?",
+      destructive: true,
+      confirmLabel: "Remover",
+    });
+    if (!ok) return;
     try {
       await axios.delete(`/api/finance/recurring-rules/${id}`);
       toast.success("Recorrência removida.");
@@ -126,24 +135,18 @@ export function RecurringSection() {
         </Button>
       </div>
 
-      {loading ? (
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-16 animate-pulse rounded-2xl border border-border bg-card" />
-          ))}
-        </div>
-      ) : rules.length === 0 ? (
-        <div className="flex flex-col items-center gap-4 rounded-3xl border border-dashed border-border bg-card py-16 text-center shadow-paper-sm">
-          <div className="rounded-3xl bg-brand-soft p-4 text-brand">
-            <CalendarClock className="h-8 w-8" />
-          </div>
-          <div>
-            <p className="font-semibold">Nenhuma recorrência</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Configure entradas e saídas fixas para projeções automáticas.
-            </p>
-          </div>
-        </div>
+      <ContentReveal loading={loading} skeleton="row" count={3}>
+        {rules.length === 0 ? (
+        <EmptyState
+          icon={CalendarClock}
+          title="Nenhuma recorrência"
+          description="Configure entradas e saídas fixas para projeções automáticas."
+          actionLabel="Nova recorrência"
+          onAction={() => {
+            setEditing(null);
+            setDialogOpen(true);
+          }}
+        />
       ) : (
         <div className="space-y-4">
           {[
@@ -225,6 +228,7 @@ export function RecurringSection() {
           )}
         </div>
       )}
+      </ContentReveal>
 
       <RecurringRuleDialog
         key={editing?.id ?? "new"}

@@ -24,16 +24,25 @@ Projeto pessoal hospedável em `os.gmdev.pro`. A ideia é ser um sistema operaci
 ## Arquitetura
 
 - `src/app/(auth)`: rotas públicas como login.
-- `src/app/(app)`: rotas protegidas com `AppShell`.
+- `src/app/(app)`: rotas protegidas com `AppShell` (Hoje, Financeiro, Tarefas, Compras, Anotações, Configurações).
 - `src/app/api`: APIs internas por domínio.
-- `src/features/finance`: componentes, schemas, data loaders e forecast financeiro.
-- `src/features/tasks`: componentes, schemas e data loaders de tarefas.
+- `src/features/finance`: ledger, forecast, alertas, cenários, componentes e data loaders.
+- `src/features/tasks`: sprint semanal, projetos, board e schemas.
+- `src/features/wishlist`: lista de compras, caps mensais, agregação vs livre para gastar.
+- `src/features/today`: painéis do dashboard Hoje (inbox, compras, sprint).
+- `src/features/search`: command palette e busca cross-domain.
+- `src/features/settings`: preferências de usuário (fuso, moeda, início da semana).
 - `src/lib/auth`: sessão, senha, bootstrap e usuário atual.
 - `src/lib/db`: conexão MongoDB cacheada.
 - `src/components/layout`: shell, sidebar, tema e login.
 - `src/components/ui`: componentes pequenos reutilizáveis.
 
 ## Domínios Implementados
+
+### Hoje (dashboard)
+
+- Cruza financeiro, tarefas e wishlist: orçamento diário, inbox de alertas/recorrências/tarefas, widget de compras do mês.
+- Alertas formatados via `formatFinanceAlertMessage`.
 
 ### Financeiro (ledger derivado)
 
@@ -44,10 +53,11 @@ Princípio: **saldos são derivados** do histórico de transações confirmadas 
 - **Cartão**: faturas (`CreditCardInvoice`), compras com `creditCardInvoiceId`; pagamento `POST /api/finance/credit-cards/[accountId]/invoices/[invoiceId]/pay` (corpo: `fromAccountId`, `amount`).
 - **Parcelamentos** (`InstallmentPlan`), **orçamentos envelope** (`CategoryBudget`, `getBudgetUsage`), **categorias** (`Category` + seed).
 - **Importação**: `POST /api/finance/imports` (multipart: `file`, `bankAccountId`, `format`: `ofx` \| `csv-generic` \| `csv-nubank` \| `csv-mercadopago`); dedup por `externalId`.
-- **Investimentos** (`Investment`, `InvestmentMovement`), **dívidas** (`Debt`), **cenários** (`ScenarioPlan`, `simulateScenario`), **alertas** (`FinanceAlert`, `buildFinanceAlerts`), **net worth** (`NetWorthSnapshot`, série em `getNetWorthSeries`).
+- **Investimentos** (`Investment`, `InvestmentMovement`), **dívidas** (`Debt`), **cenários** (`ScenarioPlan`, `simulateScenario` com `add-expense` e `add-one-time-expense`), **alertas** (`FinanceAlert`, `buildFinanceAlerts` incl. `wishlist-over-free` e `goal-funding-gap`), **net worth** (`NetWorthSnapshot`, série em `getNetWorthSeries`).
+- **Metas** (`FinancialGoal`): aporte mensal necessário via `goalFunding.monthlyNeed`.
 - **Multi-moeda (opcional)**: campo `currency` em contas; modelo `ExchangeRate`; conversão plena é evolutiva.
 
-**Lib principal**: `src/features/finance/lib/` — `ledger`, `transfers`, `creditCard`, `budgets`, `scenarios`, `netWorth`, `alerts`, `investments`, `forecast`, importers em `importers/`.
+**Lib principal**: `src/features/finance/lib/` — `ledger`, `transfers`, `creditCard`, `budgets`, `scenarios`, `goalFunding`, `netWorth`, `alerts`, `investments`, `forecast`, importers em `importers/`.
 
 **APIs**: `src/app/api/finance/*` — contas, transações, cofrinhos, recorrências, metas, `transfers`, `categories`, `credit-cards/...`, `installments`, `budgets`, `scenarios`, `investments`, `debts`, `imports`, `alerts/[id]/ack`, `exchange-rate`.
 
@@ -55,6 +65,21 @@ Princípio: **saldos são derivados** do histórico de transações confirmadas 
 - Projetos, sprint semanal e tarefas.
 - Sprint atual criada automaticamente quando não existe.
 - Board por status e visão de distribuição por projeto.
+
+### Compras (wishlist)
+- Lanes `dream` / `planned` / `archive`; status e preço estimado/real.
+- Caps mensais (`WishlistMonthBudget`); agregação em `aggregation.ts` (`sumEstimatedForMonth`, `isWishlistAffordable`).
+- Comparado ao livre para gastar via `getFreeToSpendForMonthKeys` e alerta `wishlist-over-free`.
+
+### Anotações
+- Pastas e notas em `/notes`.
+
+### Configurações
+- `User`: `timezone`, `defaultCurrency`, `weekStartsOn`.
+- API `GET/PATCH /api/user/settings`; página `/settings`.
+
+### Busca
+- Command palette (`CommandPalette`) e `GET /api/search` cross-domain.
 
 ## Variáveis De Ambiente
 

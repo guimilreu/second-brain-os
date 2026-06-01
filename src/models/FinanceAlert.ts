@@ -12,6 +12,8 @@ const FinanceAlertSchema = new Schema(
         "goal-milestone",
         "recurring-late",
         "unusual-spending",
+        "wishlist-over-free",
+        "goal-funding-gap",
       ],
       required: true,
     },

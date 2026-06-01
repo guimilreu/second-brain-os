@@ -15,6 +15,7 @@ import {
   useState,
 } from "react";
 import type { NoteDetailDTO } from "@/features/notes/lib/types";
+import { SectionSkeleton } from "@/components/motion/SectionSkeleton";
 
 export type NoteBlockEditorHandle = {
   copyMarkdownToClipboard: () => Promise<void>;
@@ -149,7 +150,7 @@ export const NoteBlockEditor = forwardRef<NoteBlockEditorHandle, NoteBlockEditor
     );
 
     if (!mounted) {
-      return <div className="h-[min(60vh,520px)] animate-pulse rounded-2xl bg-muted/40" />;
+      return <SectionSkeleton variant="block" count={1} className="h-[min(60vh,520px)]" />;
     }
 
     const theme = resolvedTheme === "dark" ? "dark" : "light";

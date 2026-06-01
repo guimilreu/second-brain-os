@@ -8,6 +8,7 @@ const ProjectSchema = new Schema(
     color: { type: String, required: true, default: "#ffc100" },
     icon: { type: String, required: true, default: "FolderKanban" },
     isArchived: { type: Boolean, default: false },
+    linkedSavingsPotId: { type: Schema.Types.ObjectId, ref: "SavingsPot" },
   },
   { timestamps: true },
 );

@@ -1,29 +1,13 @@
 import { requireCurrentUser } from "@/lib/auth/current-user";
 import { connectToDatabase } from "@/lib/db/mongodb";
-import type { ParsedOfxTransaction } from "@/features/finance/lib/importers/ofx";
-import { parseOfxContent } from "@/features/finance/lib/importers/ofx";
-import { parseCsvContentToTransactions } from "@/features/finance/lib/importers/csvMapped";
+import {
+  importFormatSchema,
+  parseImportFile,
+} from "@/features/finance/lib/importers/importFile";
 import { created, handleApiError } from "@/lib/http/api-response";
 import { z } from "zod";
 import { ImportBatch } from "@/models/ImportBatch";
 import { Transaction } from "@/models/Transaction";
-
-const importFormatSchema = z.enum([
-  "ofx",
-  "csv-generic",
-  "csv-nubank",
-  "csv-mercadopago",
-]);
-
-function parseImportFile(
-  format: z.infer<typeof importFormatSchema>,
-  text: string,
-): ParsedOfxTransaction[] {
-  if (format === "ofx") {
-    return parseOfxContent(text);
-  }
-  return parseCsvContentToTransactions(text);
-}
 
 export async function POST(request: Request) {
   try {

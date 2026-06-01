@@ -1,6 +1,6 @@
 "use client";
 
-import { Landmark, ListTodo, NotebookPen, Plus, Sparkles, ArrowRightLeft, FileUp } from "lucide-react";
+import { Landmark, ListTodo, NotebookPen, Plus, ShoppingBag, ArrowRightLeft, FileUp } from "lucide-react";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -12,9 +12,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { springSnap } from "@/lib/motion/spring";
+import { useActionStore } from "@/stores/action-store";
 
 export function QuickActions() {
   const router = useRouter();
+  const { openTransaction, openTransfer, openTask, openWishlist, openImport } =
+    useActionStore();
 
   async function createNoteAndOpen() {
     try {
@@ -57,64 +60,30 @@ export function QuickActions() {
         >
           <Plus className="h-5 w-5" />
         </DropdownMenuTrigger>
-        <DropdownMenuContent side="top" align="end" sideOffset={8}>
-          <DropdownMenuItem onClick={() => router.push("/finance")}>
+        <DropdownMenuContent side="top" align="end" sideOffset={8} className="w-64 p-2 rounded-lg">
+          <DropdownMenuItem onClick={() => openTransaction()}>
             <Landmark className="h-4 w-4" />
             Registrar gasto ou entrada
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => router.push("/finance#tabs")}>
+          <DropdownMenuItem onClick={() => openTransfer()}>
             <ArrowRightLeft className="h-4 w-4" />
             Transferência ou aporte
           </DropdownMenuItem>
-          <DropdownMenuItem
-            onClick={() => {
-              const input = document.createElement("input");
-              input.type = "file";
-              input.accept = ".ofx,.csv";
-              input.onchange = async () => {
-                const file = input.files?.[0];
-                if (!file) return;
-                const fd = new FormData();
-                fd.append("file", file);
-                const lower = file.name.toLowerCase();
-                fd.append(
-                  "format",
-                  lower.endsWith(".csv") ? "csv-generic" : "ofx",
-                );
-                try {
-                  const acc = await fetch("/api/finance/accounts");
-                  const j = await acc.json();
-                  const first = j.data?.[0]?.id;
-                  if (!first) {
-                    toast.error("Crie uma conta antes de importar.");
-                    return;
-                  }
-                  fd.append("bankAccountId", first);
-                  const res = await fetch("/api/finance/imports", { method: "POST", body: fd });
-                  if (!res.ok) throw new Error();
-                  toast.success("Extrato importado.");
-                  router.refresh();
-                } catch {
-                  toast.error("Falha na importação.");
-                }
-              };
-              input.click();
-            }}
-          >
+          <DropdownMenuItem onClick={() => openImport()}>
             <FileUp className="h-4 w-4" />
-            Importar extrato (OFX ou CSV, 1ª conta)
+            Importar extrato
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => openTask()}>
+            <ListTodo className="h-4 w-4" />
+            Nova tarefa
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => openWishlist()}>
+            <ShoppingBag className="h-4 w-4" />
+            Novo desejo
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => void createNoteAndOpen()}>
             <NotebookPen className="h-4 w-4" />
             Nova anotação
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => router.push("/tasks#tasks-board")}>
-            <ListTodo className="h-4 w-4" />
-            Planejar tarefa da semana
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => router.push("/")}>
-            <Sparkles className="h-4 w-4" />
-            Ver cockpit de hoje
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

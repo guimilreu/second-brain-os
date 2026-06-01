@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, startTransition } from "react";
 import { toast } from "sonner";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { NoteEditorPanel } from "@/features/notes/components/NoteEditorPanel";
 import { NoteListPanel } from "@/features/notes/components/NoteListPanel";
 import type {
@@ -27,6 +28,7 @@ export function NotesWorkspace({
   initialFolders,
   urlOpenNoteId,
 }: NotesWorkspaceProps) {
+  const confirm = useConfirm();
   const [notes, setNotes] = useState(initialNotes);
   const [folders, setFolders] = useState(initialFolders);
   const [activeFolderId, setActiveFolderId] = useState<NotesFolderFilter>("all");
@@ -87,11 +89,13 @@ export function NotesWorkspace({
   };
 
   const handleDeleteFolder = async (folderId: string) => {
-    if (
-      !window.confirm(
-        "Excluir esta pasta? As notas dentro dela passam a ficar sem pasta.",
-      )
-    ) {
+    const ok = await confirm({
+      title: "Excluir pasta?",
+      description: "As notas dentro dela passam a ficar sem pasta.",
+      destructive: true,
+      confirmLabel: "Excluir",
+    });
+    if (!ok) {
       return;
     }
     const res = await fetch(`/api/note-folders/${folderId}`, { method: "DELETE" });
