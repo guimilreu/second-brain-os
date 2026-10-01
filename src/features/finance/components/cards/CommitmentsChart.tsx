@@ -153,7 +153,7 @@ export function CommitmentsChart({ cardId, months, currentYear }: CommitmentsCha
                 <li key={item.month}>
                   <Link
                     href={`/cards/${cardId}?month=${item.month}`}
-                    className="flex items-center justify-between gap-3 py-2.5 transition-colors hover:text-primary"
+                    className="flex items-center justify-between gap-3 py-2.5 transition-colors hover:text-primary-ink"
                   >
                     <span className="min-w-0">
                       <span className="block text-[0.8125rem] font-semibold">

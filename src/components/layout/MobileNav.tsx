@@ -24,7 +24,7 @@ export function MobileNav() {
         key={item.href}
         href={item.href}
         aria-current={active ? "page" : undefined}
-        className={cn(itemClass, active ? "text-primary" : "text-muted-foreground")}
+        className={cn(itemClass, active ? "text-primary-ink" : "text-muted-foreground")}
       >
         <Icon className="size-5" />
         {item.label}

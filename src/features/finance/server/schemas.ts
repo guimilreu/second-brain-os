@@ -85,7 +85,7 @@ export const accountSchema = z.object({
   institution: z.enum(INSTITUTIONS).default("other"),
   kind: z.enum(ACCOUNT_KINDS),
   purpose: z.enum(ACCOUNT_PURPOSES).nullable().default(null),
-  color: z.string().regex(/^#[0-9a-f]{6}$/i).default("#6366f1"),
+  color: z.string().regex(/^#[0-9a-f]{6}$/i).default("#00d0ff"),
   yieldCdiPct: z.number().min(0).max(300).nullable().default(null),
   /** Saldo atual informado (contas e cofrinhos). Na edição, ajusta o saldo inicial. */
   balanceCents: signedCents.optional(),

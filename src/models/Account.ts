@@ -37,7 +37,7 @@ const AccountSchema = new Schema(
     institution: { type: String, enum: INSTITUTIONS, default: "other" },
     kind: { type: String, enum: ACCOUNT_KINDS, required: true },
     purpose: { type: String, enum: [...ACCOUNT_PURPOSES, null], default: null },
-    color: { type: String, default: "#6366f1" },
+    color: { type: String, default: "#00d0ff" },
     yieldCdiPct: { type: Number, default: null },
     openingBalanceCents: { type: Number, default: 0 },
     openingDate: { type: String, required: true },

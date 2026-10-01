@@ -111,7 +111,7 @@ export function InvoiceItems({ cardId, month, isFuture, today, items, accounts, 
         postedCount ? (
           <Link
             href={`/transactions?month=${month}&account=${cardId}`}
-            className="text-[0.8125rem] font-semibold text-primary hover:underline"
+            className="text-[0.8125rem] font-semibold text-primary-ink hover:underline"
           >
             Ver em Lançamentos
           </Link>

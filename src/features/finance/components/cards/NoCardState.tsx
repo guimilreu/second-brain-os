@@ -27,7 +27,7 @@ export function NoCardState({ setupCompleted }: NoCardStateProps) {
           Prefere cadastrar só o cartão?{" "}
           <Link
             href="/accounts"
-            className="font-semibold text-primary hover:underline"
+            className="font-semibold text-primary-ink hover:underline"
           >
             Vá em Contas e cofres
           </Link>

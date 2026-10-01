@@ -121,7 +121,7 @@ export function TransactionFiltersBar({
         >
           <SlidersHorizontal />
           Filtros
-          {selectCount ? <span className="num text-primary">{selectCount}</span> : null}
+          {selectCount ? <span className="num text-primary-ink">{selectCount}</span> : null}
         </Button>
       </div>
 

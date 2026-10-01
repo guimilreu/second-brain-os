@@ -1,6 +1,6 @@
 # Second Brain OS
 
-Controle financeiro pessoal do GM, hospedável em [os.gmdev.pro](https://os.gmdev.pro). Feito para um cenário só: Mercado Pago com cofrinhos (Saldo e Fatura), cartão Nubank com faturas e parcelas, Inter quase parado.
+Controle financeiro pessoal do GM, hospedável em [gm.socialsell.ai](https://gm.socialsell.ai). Feito para um cenário só: Mercado Pago com cofrinhos (Saldo e Fatura), cartão Nubank com faturas e parcelas, Inter quase parado.
 
 - **Hoje**: quanto ainda dá para gastar no mês (e por dia), avisos do que merece atenção, fatura e próximos lançamentos.
 - **Lançar** em segundos, inclusive em linguagem natural ("ifood 42,90 nubank", "notebook 3600 12x"), já mostrando em qual fatura cai e o impacto no mês.

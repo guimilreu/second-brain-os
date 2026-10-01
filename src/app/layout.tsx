@@ -19,7 +19,7 @@ export const metadata: Metadata = {
     template: "%s | Second Brain OS",
   },
   description: "Sistema operacional pessoal para as finanças.",
-  metadataBase: new URL("https://os.gmdev.pro"),
+  metadataBase: new URL("https://gm.socialsell.ai"),
   appleWebApp: { capable: true, title: "Second Brain", statusBarStyle: "default" },
 };
 

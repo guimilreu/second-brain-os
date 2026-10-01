@@ -14,7 +14,7 @@ export function toAccount(doc: Lean): Account {
     institution: doc.institution as Account["institution"],
     kind: doc.kind as Account["kind"],
     purpose: (doc.purpose as Account["purpose"]) ?? null,
-    color: String(doc.color ?? "#6366f1"),
+    color: String(doc.color ?? "#00d0ff"),
     yieldCdiPct: (doc.yieldCdiPct as number | null) ?? null,
     openingBalanceCents: Number(doc.openingBalanceCents ?? 0),
     openingDate: String(doc.openingDate),

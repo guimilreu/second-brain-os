@@ -66,7 +66,7 @@ function SidebarContent({ userName, onNavigate }: SidebarProps & { onNavigate?: 
                       : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground",
                   )}
                 >
-                  <Icon className={cn("size-4", active && "text-primary")} />
+                  <Icon className={cn("size-4", active && "text-primary-ink")} />
                   {item.label}
                 </Link>
               );

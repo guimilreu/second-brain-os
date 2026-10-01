@@ -17,7 +17,7 @@ export default function LoginPage() {
           className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,oklch(1_0_0/0.06)_1px,transparent_1px),linear-gradient(to_bottom,oklch(1_0_0/0.06)_1px,transparent_1px)] bg-[size:48px_48px] [mask-image:radial-gradient(ellipse_at_top_left,black,transparent_70%)]"
         />
         <div className="relative flex items-center gap-2.5">
-          <span className="grid size-8 place-items-center rounded-md bg-primary-foreground text-xs font-extrabold text-primary">
+          <span className="grid size-8 place-items-center rounded-md bg-primary-foreground text-xs font-extrabold text-primary-ink">
             SB
           </span>
           <span className="font-bold tracking-tight">Second Brain</span>
@@ -30,7 +30,7 @@ export default function LoginPage() {
             Saldos, recorrências, cartões, metas e previsão do mês num só lugar.
           </p>
         </div>
-        <p className="relative text-sm text-primary-foreground/60">os.gmdev.pro</p>
+        <p className="relative text-sm text-primary-foreground/60">gm.socialsell.ai</p>
       </section>
 
       <section className="flex items-center justify-center px-6 py-12">

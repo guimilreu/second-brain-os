@@ -18,20 +18,28 @@ export function LoginForm() {
 
     const formData = new FormData(event.currentTarget);
 
-    const response = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email: formData.get("email"),
-        password: formData.get("password"),
-      }),
-    });
-
-    setIsSubmitting(false);
-
-    if (!response.ok) {
-      toast.error("Não foi possível entrar. Confira e-mail e senha.");
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: formData.get("email"),
+          password: formData.get("password"),
+        }),
+      });
+      if (!response.ok) {
+        toast.error(
+          response.status === 401
+            ? "E-mail ou senha incorretos."
+            : "O servidor não conseguiu entrar agora. Tente de novo em instantes.",
+        );
+        return;
+      }
+    } catch {
+      toast.error("Sem conexão com o servidor. Confira sua internet.");
       return;
+    } finally {
+      setIsSubmitting(false);
     }
 
     router.push("/");

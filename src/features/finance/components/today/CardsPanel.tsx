@@ -193,7 +193,7 @@ function CardBlock({ overview, today }: { overview: CardOverview; today: DateStr
           Sem cofre de reserva ligado a este cartão.{" "}
           <Link
             href="/accounts"
-            className="font-semibold text-primary hover:underline"
+            className="font-semibold text-primary-ink hover:underline"
           >
             Ligar um cofre
           </Link>

@@ -339,7 +339,7 @@ function ReserveBlock({
       {account ? null : (
         <Link
           href="/accounts"
-          className="inline-flex items-center gap-1 text-[0.8125rem] font-semibold text-primary hover:underline"
+          className="inline-flex items-center gap-1 text-[0.8125rem] font-semibold text-primary-ink hover:underline"
         >
           Configurar em Contas e cofres
           <ArrowRight className="size-3.5" />

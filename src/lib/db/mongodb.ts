@@ -105,6 +105,8 @@ export async function connectToDatabase() {
 
     cached.promise = mongoose.connect(MONGODB_URI, {
       bufferCommands: false,
+      // Falha rápido (em vez dos 30 s padrão) quando o banco está inacessível — ex.: IP fora da lista do Atlas.
+      serverSelectionTimeoutMS: 8_000,
     });
   }
 

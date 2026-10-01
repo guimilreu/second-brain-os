@@ -90,7 +90,7 @@ export function SetupWizard({ categories, today, cdiAnnualPct }: SetupWizardProp
                     className={cn(
                       "num grid size-7 shrink-0 place-items-center rounded-full text-xs font-bold transition-colors",
                       current && "bg-primary text-primary-foreground",
-                      done && "bg-primary/15 text-primary",
+                      done && "bg-primary/15 text-primary-ink",
                       !current && !done && "bg-muted text-muted-foreground",
                     )}
                   >

@@ -170,7 +170,7 @@ export function CardPurchaseOptions({
         <button
           type="button"
           onClick={() => setChoosing(true)}
-          className="text-[0.8125rem] font-semibold text-primary hover:underline"
+          className="text-[0.8125rem] font-semibold text-primary-ink hover:underline"
         >
           Escolher outra fatura
         </button>

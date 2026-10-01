@@ -1,6 +1,6 @@
 # Second Brain OS
 
-Sistema financeiro pessoal do GM, hospedável em `os.gmdev.pro`. Usuário único: tudo é desenhado para o cenário dele, não para "qualquer pessoa".
+Sistema financeiro pessoal do GM, hospedável em `gm.socialsell.ai`. Usuário único: tudo é desenhado para o cenário dele, não para "qualquer pessoa".
 
 ## O cenário (a razão de cada regra)
 
@@ -33,7 +33,7 @@ Sistema financeiro pessoal do GM, hospedável em `os.gmdev.pro`. Usuário único
 - Models: `Account` (contas, cofrinhos, cartão com `card`, metas com `goal`), `Transaction`, `Recurring`, `Category` (seed em `server/defaults.ts`; `systemKey` = categorias do sistema), `User` (`cdiAnnualPct`, `timezone`).
 - Dados do app antigo: categorias antigas são arquivadas (não apagadas) e trocadas pelas novas; lançamentos no formato antigo são ignorados (`server/indexes.ts`); os índices são alinhados ao schema uma vez por processo.
 - Extras de uso diário: PWA (instalável na tela inicial, atalho "Lançar"), atalho `N` para lançar, ⌘K para buscar e lançar, botão de ocultar valores.
-- UI: tokens em `src/app/globals.css` (neutro frio + índigo; `positive`/`negative`/`warning`/`info`; `num` para valores); primitivos em `src/components/ui` (`Money` recebe **centavos**); componentes de domínio em `src/features/finance/components/<área>`.
+- UI: tokens em `src/app/globals.css` (neutro frio + ciano `#00d0ff` como primária — texto sobre ela é escuro; para texto/link na cor da marca use `text-primary-ink`; `positive`/`negative`/`warning`/`info`; `num` para valores); primitivos em `src/components/ui` (`Money` recebe **centavos**); componentes de domínio em `src/features/finance/components/<área>`.
 
 ## Stack
 
