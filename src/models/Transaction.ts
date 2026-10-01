@@ -1,67 +1,52 @@
 import { model, models, Schema, type InferSchemaType } from "mongoose";
+import { PAYMENT_METHODS, TX_TYPES } from "@/features/finance/domain/types";
 
-const SplitItemSchema = new Schema(
+const InstallmentSchema = new Schema(
   {
-    category: { type: String, required: true },
-    amount: { type: Number, required: true, min: 0 },
-    notes: { type: String, default: "" },
-  },
-  { _id: false },
-);
-
-const AttachmentSchema = new Schema(
-  {
-    url: { type: String, required: true },
-    name: { type: String, default: "" },
-    mime: { type: String, default: "" },
+    groupId: { type: String, required: true },
+    index: { type: Number, required: true, min: 1 },
+    count: { type: Number, required: true, min: 1 },
   },
   { _id: false },
 );
 
 const TransactionSchema = new Schema(
   {
-    userId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
-    bankAccountId: { type: Schema.Types.ObjectId, ref: "BankAccount" },
-    recurringRuleId: { type: Schema.Types.ObjectId, ref: "RecurringRule", index: true },
-    recurringOccurrenceDate: { type: Date },
-    transferId: { type: Schema.Types.ObjectId, ref: "Transfer", index: true },
-    creditCardInvoiceId: { type: Schema.Types.ObjectId, ref: "CreditCardInvoice" },
-    installmentPlanId: { type: Schema.Types.ObjectId, ref: "InstallmentPlan" },
-    installmentNumber: { type: Number, min: 1 },
-    title: { type: String, required: true, trim: true },
-    amount: { type: Number, required: true, min: 0 },
-    type: { type: String, enum: ["income", "expense"], required: true, index: true },
-    category: { type: String, required: true, trim: true },
-    status: {
-      type: String,
-      enum: ["planned", "scheduled", "confirmed", "late", "cancelled"],
-      default: "confirmed",
+    userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    type: { type: String, enum: TX_TYPES, required: true },
+    amountCents: {
+      type: Number,
+      required: true,
+      min: 1,
+      validate: { validator: Number.isInteger, message: "Valor em centavos deve ser inteiro." },
     },
-    occurredAt: { type: Date, required: true, index: true },
+    description: { type: String, required: true, trim: true },
+    categoryId: { type: Schema.Types.ObjectId, ref: "Category", default: null },
+    accountId: { type: Schema.Types.ObjectId, ref: "Account", required: true },
+    toAccountId: { type: Schema.Types.ObjectId, ref: "Account", default: null },
+    date: { type: String, required: true },
+    competence: { type: String, required: true },
+    method: { type: String, enum: [...PAYMENT_METHODS, null], default: null },
+    invoiceMonth: { type: String, default: null },
+    /** Fatura escolhida à mão (não recalcula quando as datas do cartão mudam). */
+    invoiceLocked: { type: Boolean, default: false },
+    installment: { type: InstallmentSchema, default: null },
+    recurringId: { type: Schema.Types.ObjectId, ref: "Recurring", default: null },
+    recurringMonth: { type: String, default: null },
     notes: { type: String, default: "" },
-    payee: { type: String, default: "", trim: true },
-    paymentMethod: {
-      type: String,
-      enum: ["pix", "debit", "credit", "cash", "boleto", "ted", "internal"],
-    },
-    tags: { type: [String], default: [] },
-    attachments: { type: [AttachmentSchema], default: [] },
-    splits: { type: [SplitItemSchema], default: [] },
-    externalId: { type: String, trim: true, index: true },
-    importBatchId: { type: Schema.Types.ObjectId, ref: "ImportBatch" },
-    /** Se false, não entra no agregado de saldo da conta (ex.: compra de cartão até pagar fatura). */
-    includeInAccountBalance: { type: Boolean, default: true },
-    reconciled: { type: Boolean, default: false },
-    currency: { type: String, default: "BRL", uppercase: true, trim: true },
-    wishlistItemId: { type: Schema.Types.ObjectId, ref: "WishlistItem" },
-    projectId: { type: Schema.Types.ObjectId, ref: "Project" },
   },
   { timestamps: true },
 );
 
-TransactionSchema.index({ userId: 1, bankAccountId: 1, status: 1 });
+TransactionSchema.index({ userId: 1, competence: 1 });
+TransactionSchema.index({ userId: 1, date: -1 });
+TransactionSchema.index({ userId: 1, "installment.groupId": 1 });
+// Uma ocorrência de recorrência só pode ser lançada uma vez.
+TransactionSchema.index(
+  { userId: 1, recurringId: 1, recurringMonth: 1 },
+  { unique: true, partialFilterExpression: { recurringId: { $type: "objectId" } } },
+);
 
 export type TransactionDocument = InferSchemaType<typeof TransactionSchema>;
 
-export const Transaction =
-  models.Transaction || model("Transaction", TransactionSchema);
+export const Transaction = models.Transaction || model("Transaction", TransactionSchema);

@@ -1,19 +1,17 @@
 # Second Brain OS
 
-Sistema operacional pessoal hospedável em [os.gmdev.pro](https://os.gmdev.pro). Centraliza o que hoje fica espalhado entre Notion, planilhas, bloco de notas e caderno — com foco em decisão diária, não em demo.
+Controle financeiro pessoal do GM, hospedável em [os.gmdev.pro](https://os.gmdev.pro). Feito para um cenário só: Mercado Pago com cofrinhos (Saldo e Fatura), cartão Nubank com faturas e parcelas, Inter quase parado.
 
-## Três pilares
-
-1. **Dinheiro** — Ledger derivado com contas, transações, recorrências, cofrinhos, metas, cartão, importação e previsibilidade (`livre para gastar`, cenários, alertas determinísticos).
-2. **Execução** — Sprint semanal de tarefas com projetos, prioridades e board por status; inbox unificada no dashboard **Hoje**.
-3. **Intenção** — Lista de compras (wishlist) com caps mensais, comparada ao livre para gastar; anotações rápidas; busca global.
-
-O dashboard **Hoje** cruza os três pilares: orçamento diário, inbox (alertas, tarefas, recorrências) e compras planejadas do mês.
+- **Hoje**: quanto ainda dá para gastar no mês (e por dia), avisos do que merece atenção, fatura e próximos lançamentos.
+- **Lançar** em segundos, inclusive em linguagem natural ("ifood 42,90 nubank", "notebook 3600 12x"), já mostrando em qual fatura cai e o impacto no mês.
+- **Cartão**: cada fatura com compras, parcelas e assinaturas; reserva no cofre Fatura; o que já está comprometido nos próximos meses.
+- **Mês**: entradas − fixas − parcelas − guardar − gastos, por categoria, e os 12 meses seguintes.
+- **Contas e cofres**: saldos por instituição, rendimento estimado pelo CDI e conferência com os apps.
 
 ## Stack
 
 - Next.js App Router, TypeScript, Tailwind CSS v4, Shadcn/ui (`base-nova`)
-- MongoDB + Mongoose, Zustand, Recharts, Framer Motion, date-fns
+- MongoDB + Mongoose, Zustand, Recharts
 - Auth pessoal: bcryptjs + JWT (`jose`) em cookie HTTP-only
 
 ## Desenvolvimento

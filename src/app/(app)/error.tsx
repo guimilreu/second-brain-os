@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function AppError({
@@ -15,12 +16,13 @@ export default function AppError({
   }, [error]);
 
   return (
-    <div className="paper-note mx-auto max-w-lg rounded-[1.75rem] p-8 text-center">
-      <h2 className="font-heading text-2xl font-bold tracking-[-0.03em]">
-        Algo deu errado
-      </h2>
-      <p className="mt-3 text-sm text-muted-foreground">
-        Não foi possível carregar esta página. Tente novamente.
+    <div className="mx-auto flex max-w-md flex-col items-center py-20 text-center">
+      <div className="grid size-11 place-items-center rounded-lg bg-negative/12 text-negative">
+        <AlertTriangle className="size-5" />
+      </div>
+      <h1 className="mt-4 text-lg font-bold tracking-tight">Não foi possível carregar esta página</h1>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Pode ter sido uma falha momentânea de conexão. Tente de novo.
       </p>
       <Button className="mt-6" onClick={reset}>
         Tentar de novo

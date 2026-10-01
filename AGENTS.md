@@ -1,112 +1,63 @@
 # Second Brain OS
 
-Projeto pessoal hospedável em `os.gmdev.pro`. A ideia é ser um sistema operacional pessoal para centralizar o que hoje fica espalhado entre Notion, planilhas, bloco de notas e caderno.
+Sistema financeiro pessoal do GM, hospedável em `os.gmdev.pro`. Usuário único: tudo é desenhado para o cenário dele, não para "qualquer pessoa".
 
-## Stack
+## O cenário (a razão de cada regra)
 
-- Next.js App Router com TypeScript e diretório `src/`.
-- Tailwind CSS v4 com tokens em `src/app/globals.css`.
-- **Shadcn/ui** (estilo `base-nova`, biblioteca `@base-ui/react`) — componentes gerados em `src/components/ui/`. Adicionar novos via `npx shadcn@latest add <componente>`.
-- Zustand para estado local de UI/filtros em `src/stores`.
-- MongoDB com Mongoose em `src/models`.
-- Auth simples com senha, `bcryptjs`, JWT via `jose` e cookie HTTP-only.
-- Lucide Icons, Framer Motion, Recharts, Sonner e date-fns.
+- **Mercado Pago** é o banco principal; toda entrada cai lá. Saldo em conta rende 105% do CDI; cofrinhos rendem 120%. Ele não deixa dinheiro no saldo: usa o cofre **Saldo** (dinheiro do dia a dia, `purpose: "operating"`) e o cofre **Fatura** (`purpose: "card_reserve"`), onde guarda durante o mês o valor das compras no cartão.
+- Pagar algo por PIX = tirar do cofre Saldo e pagar → no sistema é **um gasto saindo do cofre Saldo**.
+- **Nubank** é o cartão de crédito (fecha ~dia 28, vence ~dia 5 — configurável por cartão e por fatura). Pagar a fatura = **uma transferência** do cofre Fatura para o cartão, marcada com a fatura paga (o caminho intermediário MP → conta Nubank não precisa ser registrado).
+- **Inter** quase não é usado.
+- Compra no cartão em 30/09 cai na **fatura de outubro** (fecha 28/10) e é paga em 05/11. A fatura é chamada pelo mês em que fecha. Parcela: cada uma cai numa fatura seguida e conta como gasto daquele mês.
 
-## Padrões
+## Regras do domínio (`src/features/finance/domain`, puras e testadas)
 
-- Componentes React em PascalCase: `Sidebar`, `LoginForm`, `TasksBoard`.
-- Stores em kebab-case: `ui-store.ts`, `tasks-store.ts`, `finance-store.ts`.
-- Models em PascalCase: `User`, `Task`, `BankAccount`.
-- Arquivos utilitários em camelCase ou kebab-case conforme pasta existente.
-- Variáveis em camelCase. Constantes globais em `NOME_CONSTANTE`.
-- Evite gambiarras. Resolva pela causa raiz, mantendo KISS, YAGNI, DRY e Clean Code.
+- **Dinheiro em centavos inteiros**; **datas sem hora** (`YYYY-MM-DD`) e meses `YYYY-MM`. Nunca `new Date("YYYY-MM-DD")` para exibir (desloca fuso): use `dates.ts`/`labels.ts`.
+- **Competência**: mês em que o lançamento conta no orçamento. Cartão → mês da fatura; resto → mês da data. Transferência nunca é gasto nem renda; pagar fatura é transferência.
+- **Ciclo do cartão** (`card.ts`): compra no dia do fechamento ou depois vai para a fatura seguinte. Datas de uma fatura podem ser ajustadas (`cycleOverrides`); compras são reposicionadas, exceto as movidas à mão (`invoiceLocked`).
+- **Saldos derivados** (`ledger.ts`): saldo inicial (`openingBalanceCents` na `openingDate`) + lançamentos a partir dessa data. Cartão não tem saldo inicial: saldo negativo = dívida (inclui parcelas futuras → limite usado).
+- **Reserva da fatura**: o cofre ligado ao cartão (`card.reserveAccountId`) deve ter o que falta pagar das faturas fechadas + a aberta (`cardReserveNeededCents`). O sistema sugere "Guarde R$ X na Fatura".
+- **Plano do mês** (`plan.ts`): Entradas (recebidas + previstas) − Fixas (pagas + previstas) − Parcelas − Guardar (metas) = **Para o dia a dia**; menos o gasto do dia a dia = **Ainda pode gastar** (e por dia, no mês atual). Entrada que cai direto em cofre de meta/reserva não conta como dinheiro do mês.
+- **Fixas** (`recurring.ts`): ocorrência lançada = transação com `recurringId` + `recurringMonth` (índice único). `autoPost` (assinatura no cartão) é lançada sozinha pelo loader; as demais pedem confirmação ou podem ser puladas no mês.
+- **Avisos** (`insights.ts`): fatura vencendo/atrasada, reserva faltando, fixa não confirmada, mês estourado, categoria acima do limite/ritmo/média, parcela terminando, cobrança duplicada, assinatura com preço novo, dinheiro parado rendendo menos, conferência de saldos atrasada, meta do mês atrasada.
+- **Conferência de saldos**: o usuário informa o saldo real do app; a diferença vira "Rendimento" (conta que rende) ou "Ajuste de saldo". O mesmo vale para o total de uma fatura.
+- **Lançamento rápido** (`quickEntry.ts`): entende "ifood 42,90 nubank", "notebook 3600 12x", "uber 23 pix ontem"; `suggestions.ts` aprende categoria/conta pelo histórico e `merchants.ts` dá o palpite inicial por estabelecimento (iFood → Alimentação, Uber → Transporte) enquanto não há histórico.
+- **Importar fatura** (`importNubank.ts` + `/import`): CSV do Nubank (`date,title,amount`). "Parcela k/n" gera a parcela k na fatura escolhida e as seguintes nas próximas; estornos viram estorno; pagamentos ficam de fora; o que já está lançado vem desmarcado.
 
 ## Arquitetura
 
-- `src/app/(auth)`: rotas públicas como login.
-- `src/app/(app)`: rotas protegidas com `AppShell` (Hoje, Financeiro, Tarefas, Compras, Anotações, Configurações).
-- `src/app/api`: APIs internas por domínio.
-- `src/features/finance`: ledger, forecast, alertas, cenários, componentes e data loaders.
-- `src/features/tasks`: sprint semanal, projetos, board e schemas.
-- `src/features/wishlist`: lista de compras, caps mensais, agregação vs livre para gastar.
-- `src/features/today`: painéis do dashboard Hoje (inbox, compras, sprint).
-- `src/features/search`: command palette e busca cross-domain.
-- `src/features/settings`: preferências de usuário (fuso, moeda, início da semana).
-- `src/lib/auth`: sessão, senha, bootstrap e usuário atual.
-- `src/lib/db`: conexão MongoDB cacheada.
-- `src/components/layout`: shell, sidebar, tema e login.
-- `src/components/ui`: componentes pequenos reutilizáveis.
+- `src/app/(app)`: `/` Hoje · `/transactions` Lançamentos · `/month` Mês · `/cards/[id]` Cartão · `/accounts` Contas e cofres · `/recurring` Fixas · `/settings` · `/setup` (configuração inicial, pré-preenchida com o cenário) · `/import` (fatura do cartão).
+- Leitura: páginas são Server Components e chamam `loadFinance()` (`server/data.ts`, cacheado por requisição; carrega tudo do usuário em memória e calcula com o domínio).
+- Escrita: **server actions** em `server/actions.ts` (zod + `requireCurrentUser` + `refresh()`), chamadas no client via `useAction()`. Sem API REST, exceto `GET /api/export`.
+- Lançar/editar qualquer coisa passa pelo `EntrySheet` único (`useEntryStore`), inclusive atalhos (guardar na fatura, pagar fatura, mover dinheiro).
+- Models: `Account` (contas, cofrinhos, cartão com `card`, metas com `goal`), `Transaction`, `Recurring`, `Category` (seed em `server/defaults.ts`; `systemKey` = categorias do sistema), `User` (`cdiAnnualPct`, `timezone`).
+- Dados do app antigo: categorias antigas são arquivadas (não apagadas) e trocadas pelas novas; lançamentos no formato antigo são ignorados (`server/indexes.ts`); os índices são alinhados ao schema uma vez por processo.
+- Extras de uso diário: PWA (instalável na tela inicial, atalho "Lançar"), atalho `N` para lançar, ⌘K para buscar e lançar, botão de ocultar valores.
+- UI: tokens em `src/app/globals.css` (neutro frio + índigo; `positive`/`negative`/`warning`/`info`; `num` para valores); primitivos em `src/components/ui` (`Money` recebe **centavos**); componentes de domínio em `src/features/finance/components/<área>`.
 
-## Domínios Implementados
+## Stack
 
-### Hoje (dashboard)
+Next.js 16 (App Router), TypeScript strict, Tailwind v4, shadcn `base-nova` (`@base-ui/react`), Zustand (estado de UI), MongoDB/Mongoose, `bcryptjs` + `jose`, Recharts, Sonner, Lucide. Fontes Manrope e JetBrains Mono. Sem framer-motion: animações só CSS.
 
-- Cruza financeiro, tarefas e wishlist: orçamento diário, inbox de alertas/recorrências/tarefas, widget de compras do mês.
-- Alertas formatados via `formatFinanceAlertMessage`.
+## Padrões
 
-### Financeiro (ledger derivado)
+- Componentes em PascalCase; stores em kebab-case; models em PascalCase.
+- Regra financeira nova → função pura em `domain/` com teste. Escrita nova → action em `server/actions.ts`.
+- Resolva pela causa raiz; KISS, YAGNI, DRY.
 
-Princípio: **saldos são derivados** do histórico de transações confirmadas (`openingBalance` + movimentos), com **cache** em `BankAccount.balance` / `availableBalance` e recálculo via `recalculateAccountBalance`. Cofrinhos são **sub-saldo** obrigatoriamente ligados a uma conta (`SavingsPot.bankAccountId`).
+## Variáveis de ambiente
 
-- **Contas** (`BankAccount`): tipos incl. crédito, empréstimo (`loan`), investimento; cartão com `closingDay` / `dueDay`; `safeMinimum`, `includeInNetWorth`, `currency`.
-- **Transferências atômicas** (`Transfer` + 2× `Transaction` com mesmo `transferId`): conta↔conta, conta↔cofrinho, cofrinho↔cofrinho, pagamento de fatura, aportes/resgates de investimento.
-- **Cartão**: faturas (`CreditCardInvoice`), compras com `creditCardInvoiceId`; pagamento `POST /api/finance/credit-cards/[accountId]/invoices/[invoiceId]/pay` (corpo: `fromAccountId`, `amount`).
-- **Parcelamentos** (`InstallmentPlan`), **orçamentos envelope** (`CategoryBudget`, `getBudgetUsage`), **categorias** (`Category` + seed).
-- **Importação**: `POST /api/finance/imports` (multipart: `file`, `bankAccountId`, `format`: `ofx` \| `csv-generic` \| `csv-nubank` \| `csv-mercadopago`); dedup por `externalId`.
-- **Investimentos** (`Investment`, `InvestmentMovement`), **dívidas** (`Debt`), **cenários** (`ScenarioPlan`, `simulateScenario` com `add-expense` e `add-one-time-expense`), **alertas** (`FinanceAlert`, `buildFinanceAlerts` incl. `wishlist-over-free` e `goal-funding-gap`), **net worth** (`NetWorthSnapshot`, série em `getNetWorthSeries`).
-- **Metas** (`FinancialGoal`): aporte mensal necessário via `goalFunding.monthlyNeed`.
-- **Multi-moeda (opcional)**: campo `currency` em contas; modelo `ExchangeRate`; conversão plena é evolutiva.
-
-**Lib principal**: `src/features/finance/lib/` — `ledger`, `transfers`, `creditCard`, `budgets`, `scenarios`, `goalFunding`, `netWorth`, `alerts`, `investments`, `forecast`, importers em `importers/`.
-
-**APIs**: `src/app/api/finance/*` — contas, transações, cofrinhos, recorrências, metas, `transfers`, `categories`, `credit-cards/...`, `installments`, `budgets`, `scenarios`, `investments`, `debts`, `imports`, `alerts/[id]/ack`, `exchange-rate`.
-
-### Tarefas
-- Projetos, sprint semanal e tarefas.
-- Sprint atual criada automaticamente quando não existe.
-- Board por status e visão de distribuição por projeto.
-
-### Compras (wishlist)
-- Lanes `dream` / `planned` / `archive`; status e preço estimado/real.
-- Caps mensais (`WishlistMonthBudget`); agregação em `aggregation.ts` (`sumEstimatedForMonth`, `isWishlistAffordable`).
-- Comparado ao livre para gastar via `getFreeToSpendForMonthKeys` e alerta `wishlist-over-free`.
-
-### Anotações
-- Pastas e notas em `/notes`.
-
-### Configurações
-- `User`: `timezone`, `defaultCurrency`, `weekStartsOn`.
-- API `GET/PATCH /api/user/settings`; página `/settings`.
-
-### Busca
-- Command palette (`CommandPalette`) e `GET /api/search` cross-domain.
-
-## Variáveis De Ambiente
-
-Use `env.example` como referência:
-
-- `MONGODB_URI`
-- `AUTH_SECRET`
-- `BOOTSTRAP_NAME`
-- `BOOTSTRAP_EMAIL`
-- `BOOTSTRAP_PASSWORD`
-
-O primeiro usuário é criado automaticamente no login quando `BOOTSTRAP_EMAIL` e `BOOTSTRAP_PASSWORD` estão configurados.
+`MONGODB_URI`, `AUTH_SECRET`, `BOOTSTRAP_NAME`, `BOOTSTRAP_EMAIL`, `BOOTSTRAP_PASSWORD` (ver `env.example`). O primeiro usuário é criado no login quando `BOOTSTRAP_*` está definido.
 
 ## Comandos
 
-- `npm run dev`: desenvolvimento.
-- `npm run lint`: ESLint.
-- `npm run typecheck`: TypeScript.
-- `npm run test`: testes unitários.
-- `npm run build`: build de produção.
+`npm run dev` · `npm run lint` · `npm run typecheck` · `npm run test` · `npm run build`
 
-## Próximos Passos Naturais
+## Próximos passos naturais
 
-- Formulários mais ricos (edição inline, anexos).
-- Preview de importação com merge manual linha a linha.
-- Importadores dedicados por banco (colunas garantidas) e OFX com mais bancos.
-- Hábitos, health tracking e CRM pessoal.
+- Importar extrato do Mercado Pago e OFX do Inter — depende de arquivos reais para acertar os formatos (a fatura do Nubank já importa).
+- Antecipação de parcelas e estorno de compra parcelada como fluxos guiados.
+- Assistente em linguagem natural sobre os próprios dados (exige integração com API de IA).
 <!-- BEGIN:nextjs-agent-rules -->
 # This is NOT the Next.js you know
 

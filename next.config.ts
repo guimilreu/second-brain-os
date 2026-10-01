@@ -4,6 +4,8 @@ const isProd = process.env.NODE_ENV === "production";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // Imagem Docker enxuta: só o servidor e as dependências rastreadas.
+  output: "standalone",
   poweredByHeader: false,
   productionBrowserSourceMaps: false,
 
@@ -13,14 +15,10 @@ const nextConfig: NextConfig = {
   experimental: {
     // Cache em disco entre builds — acelera `next build` após a primeira compilação.
     turbopackFileSystemCacheForBuild: true,
-    // Barrel imports (ícones, datas, gráficos, BlockNote) — tree-shake mais agressivo.
+    // Barrel imports (ícones, gráficos) — tree-shake mais agressivo.
     optimizePackageImports: [
       "lucide-react",
-      "date-fns",
       "recharts",
-      "@blocknote/core",
-      "@blocknote/react",
-      "@blocknote/shadcn",
       "@base-ui/react",
     ],
   },

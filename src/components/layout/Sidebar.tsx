@@ -1,226 +1,125 @@
 "use client";
 
-import {
-	CheckSquare,
-	ShoppingBag,
-	Home,
-	Landmark,
-	NotebookPen,
-	LogOut,
-	Menu,
-	Settings,
-	X,
-} from "lucide-react";
+import { LogOut, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { AnimatePresence, motion } from "framer-motion";
-import { ThemeToggle } from "@/components/layout/ThemeToggle";
-import { listContainer, listItem, springDrawer, springSnap, springUI } from "@/lib/motion/spring";
+import { NAV_SECTIONS, isNavActive } from "@/components/layout/nav";
+import { Button } from "@/components/ui/button";
 import { useUiStore } from "@/stores/ui-store";
-import { cn } from "@/lib/utils/cn";
-
-const NAV_SECTIONS = [
-	{
-		label: "Hoje",
-		items: [
-			{ href: "/", label: "Hoje", icon: Home },
-			{ href: "/notes", label: "Anotações", icon: NotebookPen },
-		],
-	},
-	{
-		label: "Operação",
-		items: [
-			{ href: "/finance", label: "Financeiro", icon: Landmark },
-			{ href: "/tasks", label: "Tarefas", icon: CheckSquare },
-		],
-	},
-	{
-		label: "Planejamento",
-		items: [{ href: "/wishlist", label: "Compras", icon: ShoppingBag }],
-	},
-	{
-		label: "Sistema",
-		items: [{ href: "/settings", label: "Configurações", icon: Settings }],
-	},
-] as const;
+import { cn } from "@/lib/utils";
 
 type SidebarProps = {
-	userName: string;
+  userName: string;
 };
 
-function SidebarContent({ userName }: SidebarProps) {
-	const pathname = usePathname();
-	const router = useRouter();
-	const setSidebarOpen = useUiStore((state) => state.setSidebarOpen);
+function initials(name: string) {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
+}
 
-	async function handleLogout() {
-		await fetch("/api/auth/logout", { method: "POST" });
-		toast.success("Sessão encerrada.");
-		router.push("/login");
-		router.refresh();
-	}
+function SidebarContent({ userName, onNavigate }: SidebarProps & { onNavigate?: () => void }) {
+  const pathname = usePathname();
+  const router = useRouter();
 
-	return (
-		<div className="flex h-full flex-col px-5 py-6">
-			<motion.div whileHover={{ x: 1 }} whileTap={{ scale: 0.995 }} transition={springUI}>
-				<Link
-					href="/"
-					onClick={() => setSidebarOpen(false)}
-					className="group flex items-center gap-3 rounded-3xl px-2 py-2 text-sidebar-foreground"
-				>
-					<span className="grid h-10 w-10 place-items-center rounded-2xl border border-sidebar-border bg-paper text-sm font-semibold tracking-tight shadow-paper-sm transition-colors group-hover:border-brand/50">
-						GM
-					</span>
-					<span>
-						<span className="block text-[0.72rem] font-medium uppercase tracking-[0.22em] text-muted-foreground">
-							Second Brain
-						</span>
-						<span className="block text-sm font-semibold tracking-tight">OS pessoal</span>
-					</span>
-				</Link>
-			</motion.div>
+  async function handleLogout() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    toast.success("Sessão encerrada.");
+    router.push("/login");
+    router.refresh();
+  }
 
-			<motion.nav
-				variants={listContainer}
-				initial="hidden"
-				animate="visible"
-				className="mt-10 space-y-7"
-			>
-				{NAV_SECTIONS.map((section) => (
-					<motion.div key={section.label} variants={listItem} className="space-y-2">
-						<div className="flex items-center gap-3 px-3">
-							<p className="text-[0.66rem] font-semibold uppercase tracking-[0.26em] text-muted-foreground">
-								{section.label}
-							</p>
-							<span className="h-px flex-1 bg-sidebar-border" />
-						</div>
+  return (
+    <div className="flex h-full flex-col">
+      <Link href="/" onClick={onNavigate} className="flex h-14 shrink-0 items-center gap-2.5 px-4">
+        <span className="grid size-7 place-items-center rounded-md bg-primary text-[0.6875rem] font-extrabold text-primary-foreground">
+          SB
+        </span>
+        <span className="text-sm font-bold tracking-tight">Second Brain</span>
+      </Link>
 
-						<div className="space-y-1.5">
-							{section.items.map((item) => {
-								const isActive =
-									item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
-								const Icon = item.icon;
+      <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-3 scrollbar-none" aria-label="Navegação principal">
+        {NAV_SECTIONS.map((section, index) => (
+          <div key={section.label ?? index} className="space-y-0.5">
+            {section.label ? (
+              <p className="px-2 pb-1 text-[0.6875rem] font-semibold tracking-wide text-muted-foreground/80 uppercase">
+                {section.label}
+              </p>
+            ) : null}
+            {section.items.map((item) => {
+              const active = isNavActive(pathname, item.href);
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={onNavigate}
+                  aria-current={active ? "page" : undefined}
+                  className={cn(
+                    "flex h-8 items-center gap-2.5 rounded-md px-2 text-[0.8125rem] font-semibold transition-colors",
+                    active
+                      ? "bg-sidebar-accent text-foreground"
+                      : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground",
+                  )}
+                >
+                  <Icon className={cn("size-4", active && "text-primary")} />
+                  {item.label}
+                </Link>
+              );
+            })}
+          </div>
+        ))}
+      </nav>
 
-								return (
-									<Link
-										key={item.href}
-										href={item.href}
-										onClick={() => setSidebarOpen(false)}
-										className={cn(
-											"group flex items-center justify-between rounded-2xl px-3 py-3 text-sm font-medium transition-[background-color,color,transform] duration-200",
-											isActive
-												? "border border-brand/25 bg-brand/15 text-sidebar-foreground shadow-paper-sm"
-												: "text-muted-foreground hover:bg-paper/70 hover:text-foreground",
-										)}
-									>
-										<span className="flex items-center gap-3">
-											<span
-												className={cn(
-													"grid h-8 w-8 place-items-center rounded-xl border border-transparent transition-colors",
-													isActive ? "border-brand/35 bg-brand text-primary-foreground" : "bg-transparent",
-												)}
-											>
-												<Icon className="h-4.5 w-4.5 transition-transform duration-200 group-hover:scale-105" />
-											</span>
-											{item.label}
-										</span>
-										<span
-											className={cn(
-												"h-1.5 w-1.5 rounded-full bg-brand transition-opacity",
-												isActive ? "opacity-100" : "opacity-0",
-											)}
-										/>
-									</Link>
-								);
-							})}
-						</div>
-					</motion.div>
-				))}
-			</motion.nav>
-
-			<div className="mt-auto space-y-3 rounded-3xl border border-sidebar-border bg-paper/55 p-3">
-				<div className="min-w-0 px-2">
-					<p className="truncate text-sm font-medium text-sidebar-foreground">{userName}</p>
-					<p className="text-xs text-muted-foreground">Sessão ativa</p>
-				</div>
-				<div className="flex items-center gap-3">
-					<ThemeToggle />
-					<motion.button
-						type="button"
-						whileHover={{ scale: 1.02 }}
-						whileTap={{ scale: 0.98 }}
-						transition={springSnap}
-						onClick={handleLogout}
-						className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-full border border-sidebar-border bg-background/40 px-4 text-sm font-medium text-muted-foreground transition-colors hover:border-danger/40 hover:bg-danger/5 hover:text-danger"
-					>
-						<LogOut className="h-4 w-4" />
-						Sair
-					</motion.button>
-				</div>
-			</div>
-		</div>
-	);
+      <div className="flex items-center gap-2.5 border-t border-sidebar-border p-3">
+        <span className="grid size-8 shrink-0 place-items-center rounded-full bg-accent text-xs font-bold text-accent-foreground">
+          {initials(userName)}
+        </span>
+        <p className="min-w-0 flex-1 truncate text-[0.8125rem] font-semibold">{userName}</p>
+        <Button variant="ghost" size="icon-sm" onClick={handleLogout} aria-label="Sair" title="Sair">
+          <LogOut />
+        </Button>
+      </div>
+    </div>
+  );
 }
 
 export function Sidebar({ userName }: SidebarProps) {
-	const isSidebarOpen = useUiStore((state) => state.isSidebarOpen);
-	const setSidebarOpen = useUiStore((state) => state.setSidebarOpen);
+  const isOpen = useUiStore((state) => state.isSidebarOpen);
+  const setOpen = useUiStore((state) => state.setSidebarOpen);
 
-	return (
-		<>
-			<aside className="fixed inset-y-0 left-0 z-30 hidden w-72 border-r border-sidebar-border bg-sidebar/88 backdrop-blur-xl lg:block">
-				<SidebarContent userName={userName} />
-			</aside>
+  return (
+    <>
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 border-r border-sidebar-border bg-sidebar lg:block">
+        <SidebarContent userName={userName} />
+      </aside>
 
-			<motion.button
-				type="button"
-				whileHover={{ scale: 1.04 }}
-				whileTap={{ scale: 0.96 }}
-				transition={springSnap}
-				onClick={() => setSidebarOpen(true)}
-				className="fixed left-4 top-4 z-40 inline-flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card shadow-paper-sm lg:hidden"
-				aria-label="Abrir menu"
-			>
-				<Menu className="h-5 w-5" />
-			</motion.button>
-
-			<AnimatePresence>
-				{isSidebarOpen ? (
-					<div className="fixed inset-0 z-50 lg:hidden">
-						<motion.button
-							type="button"
-							initial={{ opacity: 0 }}
-							animate={{ opacity: 1 }}
-							exit={{ opacity: 0 }}
-							transition={springSnap}
-							className="absolute inset-0 bg-black/55 backdrop-blur-[2px]"
-							onClick={() => setSidebarOpen(false)}
-							aria-label="Fechar menu"
-						/>
-						<motion.aside
-							initial={{ x: "-104%" }}
-							animate={{ x: 0 }}
-							exit={{ x: "-104%" }}
-							transition={springDrawer}
-							className="absolute inset-y-0 left-0 flex w-[86vw] max-w-72 flex-col border-r border-border bg-sidebar shadow-paper"
-						>
-							<motion.button
-								type="button"
-								initial={{ opacity: 0, scale: 0.9 }}
-								animate={{ opacity: 1, scale: 1 }}
-								transition={{ ...springSnap, delay: 0.08 }}
-								onClick={() => setSidebarOpen(false)}
-								className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card shadow-paper-sm"
-								aria-label="Fechar menu"
-							>
-								<X className="h-5 w-5" />
-							</motion.button>
-							<SidebarContent userName={userName} />
-						</motion.aside>
-					</div>
-				) : null}
-			</AnimatePresence>
-		</>
-	);
+      {isOpen ? (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/40 animate-in fade-in-0"
+            onClick={() => setOpen(false)}
+            aria-label="Fechar menu"
+          />
+          <aside className="absolute inset-y-0 left-0 w-72 max-w-[85vw] border-r border-sidebar-border bg-sidebar shadow-lg animate-in slide-in-from-left duration-200">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="absolute top-3 right-3"
+              onClick={() => setOpen(false)}
+              aria-label="Fechar menu"
+            >
+              <X />
+            </Button>
+            <SidebarContent userName={userName} onNavigate={() => setOpen(false)} />
+          </aside>
+        </div>
+      ) : null}
+    </>
+  );
 }

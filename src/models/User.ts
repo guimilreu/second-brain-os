@@ -7,7 +7,9 @@ const UserSchema = new Schema(
     passwordHash: { type: String, required: true },
     timezone: { type: String, default: "America/Sao_Paulo" },
     defaultCurrency: { type: String, default: "BRL" },
-    weekStartsOn: { type: Number, default: 1, min: 0, max: 6 },
+    /** CDI anual em % (ex.: 14.9) — base das estimativas de rendimento dos cofrinhos. */
+    cdiAnnualPct: { type: Number, default: null },
+    setupCompletedAt: { type: Date, default: null },
   },
   { timestamps: true },
 );

@@ -4,22 +4,16 @@ const CategorySchema = new Schema(
   {
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
     name: { type: String, required: true, trim: true },
-    slug: { type: String, required: true, trim: true, lowercase: true },
-    kind: {
-      type: String,
-      enum: ["income", "expense", "both"],
-      default: "expense",
-    },
-    parentId: { type: Schema.Types.ObjectId, ref: "Category", default: null },
-    color: { type: String, default: "#94a3b8" },
-    icon: { type: String, default: "Tag" },
-    displayOrder: { type: Number, default: 0 },
-    isArchived: { type: Boolean, default: false },
+    kind: { type: String, enum: ["expense", "income"], required: true },
+    color: { type: String, default: "#64748b" },
+    icon: { type: String, default: "tag" },
+    limitCents: { type: Number, default: null },
+    archived: { type: Boolean, default: false },
+    sortOrder: { type: Number, default: 0 },
+    systemKey: { type: String, enum: ["adjustment", "yield", "opening", null], default: null },
   },
   { timestamps: true },
 );
-
-CategorySchema.index({ userId: 1, slug: 1 }, { unique: true });
 
 export type CategoryDocument = InferSchemaType<typeof CategorySchema>;
 
