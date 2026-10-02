@@ -1,3 +1,4 @@
+import { isSettledOutside } from "./card";
 import { monthOf } from "./dates";
 import type { Account, Cents, MonthKey, Transaction, TxType } from "./types";
 
@@ -8,8 +9,12 @@ export function competenceOf(tx: { type: TxType; date: string; invoiceMonth: Mon
 }
 
 function affectsBalance(account: Account, tx: Transaction) {
-  // Cartão não tem saldo inicial: toda compra/pagamento conta. Contas: só o que veio depois do saldo inicial.
-  return account.kind === "credit_card" || tx.date >= account.openingDate;
+  if (account.kind === "credit_card") {
+    // Cartão não tem saldo inicial: toda compra/pagamento conta, menos o das faturas pagas antes do app.
+    return !account.card || !isSettledOutside(account.card, tx.invoiceMonth);
+  }
+  // Contas: só o que veio depois do saldo inicial (o resto já está nele).
+  return tx.date >= account.openingDate;
 }
 
 /** Saldo derivado. Cartão fica negativo (= dívida). */

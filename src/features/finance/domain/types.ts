@@ -24,12 +24,19 @@ export type Institution = (typeof INSTITUTIONS)[number];
 export type CycleOverride = { month: MonthKey; closingDate: DateStr; dueDate: DateStr };
 
 export type CardConfig = {
-  closingDay: number;
+  /** Dia do vencimento (o banco mantém fixo). */
   dueDay: number;
+  /**
+   * A fatura fecha N dias corridos antes do vencimento (Nubank: 7). Por isso o dia do fechamento
+   * muda de mês para mês: vence 05/out → fecha 28/set; vence 05/nov → fecha 29/out.
+   */
+  closingDaysBeforeDue: number;
   limitCents: Cents | null;
   /** Cofre onde o dinheiro da fatura é guardado até o vencimento. */
   reserveAccountId: string | null;
   cycleOverrides: CycleOverride[];
+  /** Faturas até este mês (inclusive) já estavam pagas antes do app: histórico, não dívida. */
+  settledThroughMonth: MonthKey | null;
 };
 
 export type GoalConfig = {
@@ -115,7 +122,7 @@ export type Recurring = {
 };
 
 export type CategoryKind = "expense" | "income";
-export type CategorySystemKey = "adjustment" | "yield" | "opening";
+export type CategorySystemKey = "adjustment" | "yield";
 
 export type Category = {
   id: string;

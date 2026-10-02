@@ -44,7 +44,7 @@ function screen(transactions: Transaction[], month: string | null = null) {
   return buildCardScreen({ accounts, categories: CATEGORIES, recurrings, transactions, today: "2026-09-30" }, card, month);
 }
 
-describe("tela do cartão (fecha 28, vence 5; hoje 30/09)", () => {
+describe("tela do cartão (vence 5, fecha 7 dias antes; hoje 30/09)", () => {
   it("abre na fatura fechada em aberto e mostra o que pagar e o que guardar", () => {
     const view = screen(baseTransactions);
 
@@ -55,7 +55,8 @@ describe("tela do cartão (fecha 28, vence 5; hoje 30/09)", () => {
       totalCents: 185_500,
       remainingCents: 185_500,
       dueDate: "2026-10-05",
-      periodStart: "2026-08-28",
+      // Agosto vence 05/09 e fecha 29/08: setembro começa no dia seguinte ao fechamento anterior.
+      periodStart: "2026-08-29",
       periodEnd: "2026-09-27",
       breakdown: { installmentsCents: 30_000, fixedCents: 5_500, predictedCents: 0, otherCents: 150_000 },
     });

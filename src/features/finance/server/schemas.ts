@@ -91,10 +91,11 @@ export const accountSchema = z.object({
   balanceCents: signedCents.optional(),
   card: z
     .object({
-      closingDay: z.number().int().min(1).max(31),
       dueDay: z.number().int().min(1).max(31),
+      closingDaysBeforeDue: z.number().int().min(1).max(25).default(7),
       limitCents: z.number().int().min(0).nullable().default(null),
       reserveAccountId: objectId.nullable().default(null),
+      settledThroughMonth: monthKey.nullable().default(null),
     })
     .nullable()
     .default(null),
@@ -126,17 +127,6 @@ export const invoiceDatesSchema = z.object({
   dueDate: dateStr,
 });
 
-export const ongoingInstallmentsSchema = z.object({
-  cardId: objectId,
-  description: z.string().trim().min(1, "Descreva a compra.").max(120),
-  categoryId: objectId.nullable().default(null),
-  installmentCents: cents,
-  /** Parcela que está na fatura aberta hoje (ex.: 4 de 10). */
-  currentIndex: z.number().int().min(1),
-  count: z.number().int().min(2).max(48),
-});
-export type OngoingInstallmentsPayload = z.input<typeof ongoingInstallmentsSchema>;
-
 export const categorySchema = z.object({
   id: objectId.optional(),
   name: z.string().trim().min(1, "Dê um nome.").max(40),
@@ -163,14 +153,12 @@ const setupAccountSchema = z.object({
   balanceCents: signedCents.default(0),
   card: z
     .object({
-      closingDay: z.number().int().min(1).max(31),
       dueDay: z.number().int().min(1).max(31),
+      closingDaysBeforeDue: z.number().int().min(1).max(25).default(7),
       limitCents: z.number().int().min(0).nullable().default(null),
       reserveKey: z.string().nullable().default(null),
-      /** Fatura já fechada e ainda não paga (o que o app do banco mostra). */
-      closedUnpaidCents: z.number().int().min(0).default(0),
-      /** Quanto já tem na fatura aberta hoje, incluindo as parcelas deste mês. */
-      openCents: z.number().int().min(0).default(0),
+      /** Última fatura já paga antes do app; as compras dela e das anteriores ficam como histórico. */
+      settledThroughMonth: monthKey.nullable().default(null),
     })
     .nullable()
     .default(null),
@@ -187,18 +175,6 @@ const setupAccountSchema = z.object({
 export const setupSchema = z.object({
   cdiAnnualPct: z.number().min(0).max(100).nullable().default(null),
   accounts: z.array(setupAccountSchema).min(1),
-  installments: z
-    .array(
-      z.object({
-        cardKey: z.string(),
-        description: z.string().trim().min(1).max(120),
-        categoryId: objectId.nullable().default(null),
-        installmentCents: cents,
-        currentIndex: z.number().int().min(1),
-        count: z.number().int().min(2).max(48),
-      }),
-    )
-    .default([]),
   recurrings: z
     .array(
       z.object({
@@ -247,4 +223,10 @@ export const recordYieldsSchema = z.object({
   /** Mês a que o rendimento se refere (o app do banco mostra quanto rendeu no mês). */
   month: monthKey,
   items: z.array(z.object({ accountId: objectId, amountCents: cents })).min(1, "Informe ao menos um rendimento."),
+});
+
+export const settleInvoicesSchema = z.object({
+  cardId: objectId,
+  /** Faturas até este mês já estavam pagas fora do app; null desfaz. */
+  month: monthKey.nullable(),
 });

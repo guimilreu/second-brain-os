@@ -3,14 +3,13 @@
 import { Types } from "mongoose";
 import { refresh } from "next/cache";
 import { ZodError, type z } from "zod";
-import { invoiceMonthFor, summarizeInvoices } from "@/features/finance/domain/card";
+import { invoiceDates, invoiceMonthFor, summarizeInvoices } from "@/features/finance/domain/card";
 import { addMonths, dayInMonth, monthDiff, monthOf } from "@/features/finance/domain/dates";
-import { planOngoingInstallments } from "@/features/finance/domain/installments";
 import { balancesByAccount, competenceOf } from "@/features/finance/domain/ledger";
 import { parseMoneyInput } from "@/features/finance/domain/money";
 import { normalizeDescription } from "@/features/finance/domain/quickEntry";
 import { occurrencesBetween, suggestedStartMonth } from "@/features/finance/domain/recurring";
-import type { MonthKey, Transaction as TransactionType } from "@/features/finance/domain/types";
+import type { CardConfig, DateStr, MonthKey, Transaction as TransactionType } from "@/features/finance/domain/types";
 import { requireCurrentUser } from "@/lib/auth/current-user";
 import { connectToDatabase } from "@/lib/db/mongodb";
 import { createLogger, serializeError } from "@/lib/logger";
@@ -31,13 +30,13 @@ import {
   importCardSchema,
   invoiceDatesSchema,
   moveInvoiceSchema,
-  ongoingInstallmentsSchema,
   reconcileInvoiceSchema,
   reconcileSchema,
   recordYieldsSchema,
   recurringSchema,
   searchSchema,
   settingsSchema,
+  settleInvoicesSchema,
   setupSchema,
   skipOccurrenceSchema,
   updateEntrySchema,
@@ -323,16 +322,24 @@ export async function saveAccount(raw: unknown) {
     const cardFields =
       input.kind === "credit_card"
         ? {
-            closingDay: card?.closingDay ?? 28,
             dueDay: card?.dueDay ?? 5,
+            closingDaysBeforeDue: card?.closingDaysBeforeDue ?? 7,
             limitCents: card?.limitCents ?? null,
             reserveAccountId: card?.reserveAccountId ? oid(card.reserveAccountId) : null,
+            settledThroughMonth: card?.settledThroughMonth ?? null,
           }
         : null;
     const goalFields = input.purpose === "goal" && goal ? goal : null;
+    const current = id ? requireAccount(state, id) : null;
+    if (cardFields?.settledThroughMonth) {
+      assertSettledBeforeApp(
+        { ...cardFields, reserveAccountId: null, cycleOverrides: current?.card?.cycleOverrides ?? [] },
+        cardFields.settledThroughMonth,
+        current?.openingDate ?? state.today,
+      );
+    }
 
-    if (id) {
-      const current = requireAccount(state, id);
+    if (id && current) {
       const set: Record<string, unknown> = { ...input, goal: goalFields };
       if (cardFields) {
         set.card = { ...cardFields, cycleOverrides: current.card?.cycleOverrides ?? [] };
@@ -365,6 +372,13 @@ export async function saveAccount(raw: unknown) {
     });
     return { id: String(created._id) };
   });
+}
+
+/** Fatura que fechou depois de o cartão entrar no app tem o pagamento registrado, não marcado como "já paga". */
+function assertSettledBeforeApp(card: CardConfig, month: MonthKey, openingDate: DateStr) {
+  if (invoiceDates(card, month).closingDate > openingDate) {
+    throw new UserError("Essa fatura fechou depois que o cartão entrou no app — registre o pagamento dela.");
+  }
 }
 
 async function applyRebucket(userId: string, card: UserState["accounts"][number], state: UserState) {
@@ -533,47 +547,22 @@ export async function setInvoiceDates(raw: unknown) {
   });
 }
 
-/** Parcelamento que já existia antes do app: gera só as parcelas que faltam depois da fatura aberta. */
-export async function addOngoingInstallments(raw: unknown) {
-  return run(ongoingInstallmentsSchema, raw, async (input, userId) => {
-    if (input.currentIndex >= input.count) throw new UserError("A parcela atual já é a última — nada a gerar.");
+/**
+ * Faturas até `month` já estavam pagas antes do app: viram histórico (sem dívida nem reserva).
+ * Só vale para fatura que fechou antes de o cartão entrar no app; depois disso, o pagamento é registrado.
+ */
+export async function settleInvoicesOutside(raw: unknown) {
+  return run(settleInvoicesSchema, raw, async ({ cardId, month }, userId) => {
     const state = await loadUserState(userId);
-    assertCategory(state, input.categoryId);
-    const card = requireAccount(state, input.cardId);
-    if (!card.card) throw new UserError("Escolha um cartão de crédito.");
-    const ids = await insertDocs(ongoingDocs(userId, card, state.today, input));
-    return { created: ids.length };
+    const card = requireAccount(state, cardId);
+    if (!card.card) throw new UserError("Conta não é um cartão.");
+    if (month) assertSettledBeforeApp(card.card, month, card.openingDate);
+    await Account.updateOne(
+      { _id: oid(cardId), userId: oid(userId) },
+      { $set: { "card.settledThroughMonth": month } },
+    );
+    return null;
   });
-}
-
-function ongoingDocs(
-  userId: string,
-  card: UserState["accounts"][number],
-  today: string,
-  input: { description: string; categoryId: string | null; installmentCents: number; currentIndex: number; count: number },
-): TransactionDoc[] {
-  if (!card.card) return [];
-  const openMonth = invoiceMonthFor(card.card, today);
-  const groupId = new Types.ObjectId().toString();
-  const purchaseDate = dayInMonth(addMonths(openMonth, -(input.currentIndex - 1)), 1);
-  return planOngoingInstallments(openMonth, input.installmentCents, input.currentIndex, input.count).map((item) => ({
-    userId: oid(userId),
-    type: "expense",
-    amountCents: item.amountCents,
-    description: input.description.trim(),
-    categoryId: input.categoryId ? oid(input.categoryId) : null,
-    accountId: oid(card.id),
-    toAccountId: null,
-    date: purchaseDate,
-    competence: item.invoiceMonth,
-    method: "credit",
-    invoiceMonth: item.invoiceMonth,
-    invoiceLocked: true,
-    installment: { groupId, index: item.index, count: item.count },
-    recurringId: null,
-    recurringMonth: null,
-    notes: "Parcelamento anterior ao app",
-  }));
 }
 
 /**
@@ -661,83 +650,54 @@ export async function updateSettings(raw: unknown) {
 // ——— Configuração inicial ———
 
 /**
- * Monta o cenário de uma vez: contas e cofres com saldo de hoje, cartão com faturas em aberto,
- * parcelamentos em andamento e recorrências.
+ * Monta o cenário de uma vez: contas e cofres com o saldo de hoje, cartão com os padrões e fixas.
+ * O que aconteceu no cartão antes de hoje entra depois, como lançamento retroativo ou importação.
  */
 export async function completeSetup(raw: unknown) {
   return run(setupSchema, raw, async (input, userId) => {
     const state = await loadUserState(userId);
     if (state.accounts.length) throw new UserError("A configuração inicial já foi feita.");
-    for (const item of [...input.installments, ...input.recurrings]) assertCategory(state, item.categoryId);
+    for (const item of input.recurrings) assertCategory(state, item.categoryId);
+    for (const { card } of input.accounts) {
+      if (card?.settledThroughMonth) {
+        assertSettledBeforeApp(
+          { ...card, reserveAccountId: null, cycleOverrides: [] },
+          card.settledThroughMonth,
+          state.today,
+        );
+      }
+    }
     const owner = oid(userId);
     const idsByKey = new Map<string, Types.ObjectId>();
     for (const account of input.accounts) idsByKey.set(account.key, new Types.ObjectId());
 
-    const accountDocs = input.accounts.map((account, index) => ({
-      _id: idsByKey.get(account.key),
-      userId: owner,
-      name: account.name,
-      institution: account.institution,
-      kind: account.kind,
-      purpose: account.purpose,
-      color: account.color,
-      yieldCdiPct: account.yieldCdiPct,
-      openingBalanceCents: account.kind === "credit_card" ? 0 : account.balanceCents,
-      openingDate: state.today,
-      sortOrder: index,
-      lastReconciledAt: state.today,
-      card: account.card
-        ? {
-            closingDay: account.card.closingDay,
-            dueDay: account.card.dueDay,
-            limitCents: account.card.limitCents,
-            reserveAccountId: account.card.reserveKey ? (idsByKey.get(account.card.reserveKey) ?? null) : null,
-            cycleOverrides: [],
-          }
-        : null,
-      goal: account.purpose === "goal" ? account.goal : null,
-    }));
-    await Account.insertMany(accountDocs);
-
-    const fresh = await loadUserState(userId);
-    const opening = systemCategory(fresh, "opening", "expense");
-    const docs: TransactionDoc[] = [];
-
-    for (const account of input.accounts) {
-      if (!account.card) continue;
-      const card = fresh.accountsById.get(String(idsByKey.get(account.key)));
-      if (!card?.card) continue;
-      const openMonth = invoiceMonthFor(card.card, fresh.today);
-      const chargeFor = (month: MonthKey, amountCents: number, description: string): TransactionDoc => ({
+    await Account.insertMany(
+      input.accounts.map((account, index) => ({
+        _id: idsByKey.get(account.key),
         userId: owner,
-        type: "expense",
-        amountCents,
-        description,
-        categoryId: opening ? oid(opening.id) : null,
-        accountId: oid(card.id),
-        toAccountId: null,
-        date: openingDateForInvoice(card, month, state.today),
-        competence: month,
-        method: "credit",
-        invoiceMonth: month,
-        invoiceLocked: true,
-        installment: null,
-        recurringId: null,
-        recurringMonth: null,
-        notes: "Valor que já estava na fatura quando o app começou",
-      });
-      if (account.card.closedUnpaidCents > 0) {
-        docs.push(chargeFor(addMonths(openMonth, -1), account.card.closedUnpaidCents, "Fatura fechada (antes do app)"));
-      }
-      if (account.card.openCents > 0) {
-        docs.push(chargeFor(openMonth, account.card.openCents, "Fatura aberta (antes do app)"));
-      }
-      for (const installment of input.installments.filter((item) => item.cardKey === account.key)) {
-        if (installment.currentIndex >= installment.count) continue;
-        docs.push(...ongoingDocs(userId, card, fresh.today, installment));
-      }
-    }
-    if (docs.length) await Transaction.insertMany(docs);
+        name: account.name,
+        institution: account.institution,
+        kind: account.kind,
+        purpose: account.purpose,
+        color: account.color,
+        yieldCdiPct: account.yieldCdiPct,
+        openingBalanceCents: account.kind === "credit_card" ? 0 : account.balanceCents,
+        openingDate: state.today,
+        sortOrder: index,
+        lastReconciledAt: state.today,
+        card: account.card
+          ? {
+              dueDay: account.card.dueDay,
+              closingDaysBeforeDue: account.card.closingDaysBeforeDue,
+              limitCents: account.card.limitCents,
+              reserveAccountId: account.card.reserveKey ? (idsByKey.get(account.card.reserveKey) ?? null) : null,
+              cycleOverrides: [],
+              settledThroughMonth: account.card.settledThroughMonth,
+            }
+          : null,
+        goal: account.purpose === "goal" ? account.goal : null,
+      })),
+    );
 
     if (input.recurrings.length) {
       await Recurring.insertMany(
@@ -757,12 +717,12 @@ export async function completeSetup(raw: unknown) {
               frequency: "monthly",
               dayOfMonth: item.dayOfMonth,
               // Fora do cartão começa já neste mês: o que venceu antes do app vira "confirme" e entra no
-              // plano sem mexer no saldo (data anterior ao saldo inicial). No cartão, a cobrança deste mês
-              // já está no valor da fatura aberta informado.
+              // plano sem mexer no saldo (data anterior ao saldo inicial). No cartão, começa na próxima
+              // cobrança; a deste mês, se já passou, entra com as compras retroativas ou com a importação.
               startMonth:
                 account?.kind === "credit_card"
-                  ? suggestedStartMonth(fresh.today, item.dayOfMonth)
-                  : monthOf(fresh.today),
+                  ? suggestedStartMonth(state.today, item.dayOfMonth)
+                  : monthOf(state.today),
               autoPost: item.autoPost,
             };
           }),
@@ -773,7 +733,8 @@ export async function completeSetup(raw: unknown) {
       { _id: owner },
       { $set: { setupCompletedAt: new Date(), ...(input.cdiAnnualPct !== null ? { cdiAnnualPct: input.cdiAnnualPct } : {}) } },
     );
-    return null;
+    const card = input.accounts.find((account) => account.kind === "credit_card");
+    return { cardId: card ? String(idsByKey.get(card.key)) : null };
   });
 }
 

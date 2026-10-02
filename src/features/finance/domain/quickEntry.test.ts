@@ -45,7 +45,14 @@ describe("lançamento em linguagem natural", () => {
 
   it("resolve a conta pelos indícios", () => {
     const accounts = scenarioAccounts();
-    expect(resolveAccountForHints(accounts, { institution: "nubank", method: null })?.id).toBe("nu-conta");
+    // No cenário do GM, "nubank" num gasto é o cartão; PIX e entrada vão para a conta.
+    expect(resolveAccountForHints(accounts, { institution: "nubank", method: null })?.id).toBe("nu-card");
+    expect(resolveAccountForHints(accounts, { institution: "nubank", method: "pix" })?.id).toBe("nu-conta");
+    expect(resolveAccountForHints(accounts, { institution: "nubank", method: null, allowCard: false })?.id).toBe(
+      "nu-conta",
+    );
+    expect(resolveAccountForHints(accounts, { institution: "mercadopago", method: null })?.id).toBe("mp-saldo");
+    expect(resolveAccountForHints(accounts, { institution: "inter", method: null })?.id).toBe("inter");
     expect(resolveAccountForHints(accounts, { institution: null, method: "credit" })?.id).toBe("nu-card");
     expect(resolveAccountForHints(accounts, { institution: "mercadopago", method: "pix" })?.id).toBe("mp-saldo");
     expect(resolveAccountForHints(accounts, { institution: null, method: null })).toBeNull();

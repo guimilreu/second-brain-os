@@ -1,22 +1,17 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { ChevronRight, Plus } from "lucide-react";
-import { planOngoingInstallments } from "@/features/finance/domain/installments";
-import { invoiceLabel, monthShort } from "@/features/finance/domain/labels";
-import { parseMoneyInput, sumCents } from "@/features/finance/domain/money";
+import { monthShort } from "@/features/finance/domain/labels";
+import { sumCents } from "@/features/finance/domain/money";
 import type { Category, MonthKey } from "@/features/finance/domain/types";
-import { addOngoingInstallments } from "@/features/finance/server/actions";
 import { CategoryIcon } from "@/features/finance/components/shared/CategoryIcon";
-import { useAction } from "@/features/finance/components/shared/useAction";
 import { Button } from "@/components/ui/button";
-import { FormActions, FormField, Input, Select } from "@/components/ui/FormField";
 import { Meter } from "@/components/ui/Meter";
-import { Modal } from "@/components/ui/Modal";
 import { Money } from "@/components/ui/Money";
 import { Panel } from "@/components/ui/Panel";
 import { Pill } from "@/components/ui/Pill";
+import { useEntryStore } from "@/stores/entry-store";
 import type { InstallmentPlan } from "./cardView";
 
 type InstallmentPlansProps = {
@@ -24,12 +19,11 @@ type InstallmentPlansProps = {
   plans: InstallmentPlan[];
   categories: Category[];
   openMonth: MonthKey;
-  currentYear: number;
 };
 
 /** Compras parceladas com parcelas ainda por vir (da fatura aberta em diante). */
-export function InstallmentPlans({ cardId, plans, categories, openMonth, currentYear }: InstallmentPlansProps) {
-  const [adding, setAdding] = useState(false);
+export function InstallmentPlans({ cardId, plans, categories, openMonth }: InstallmentPlansProps) {
+  const openNew = useEntryStore((state) => state.openNew);
   const categoriesById = new Map(categories.map((category) => [category.id, category]));
   const remainingCents = sumCents(plans.map((plan) => plan.remainingCents));
 
@@ -111,186 +105,13 @@ export function InstallmentPlans({ cardId, plans, categories, openMonth, current
         <Button
           variant="ghost"
           className="w-full"
-          onClick={() => setAdding(true)}
+          // Antiga ou nova, é a mesma compra: com a data real, as parcelas caem nas faturas certas.
+          onClick={() => openNew({ type: "expense", accountId: cardId, installments: 2 })}
         >
           <Plus />
-          Adicionar parcelamento que já existia
+          Lançar compra parcelada
         </Button>
       </div>
-
-      <Modal
-        open={adding}
-        onClose={() => setAdding(false)}
-        title="Parcelamento que já existia"
-        description="Compra parcelada feita antes de você usar o app."
-      >
-        <OngoingInstallmentForm
-          cardId={cardId}
-          categories={categories}
-          openMonth={openMonth}
-          currentYear={currentYear}
-          onDone={() => setAdding(false)}
-        />
-      </Modal>
     </Panel>
-  );
-}
-
-type OngoingInstallmentFormProps = {
-  cardId: string;
-  categories: Category[];
-  openMonth: MonthKey;
-  currentYear: number;
-  onDone: () => void;
-};
-
-function OngoingInstallmentForm({ cardId, categories, openMonth, currentYear, onDone }: OngoingInstallmentFormProps) {
-  const { pending, execute } = useAction();
-  const [description, setDescription] = useState("");
-  const [amount, setAmount] = useState("");
-  const [current, setCurrent] = useState("");
-  const [count, setCount] = useState("");
-  const [categoryId, setCategoryId] = useState("");
-  const [error, setError] = useState<string | null>(null);
-
-  const openLabel = invoiceLabel(openMonth, currentYear).toLowerCase();
-  const installmentCents = parseMoneyInput(amount);
-  const currentIndex = Number(current);
-  const total = Number(count);
-  const validNumbers =
-    Number.isInteger(currentIndex) && Number.isInteger(total) && total >= 2 && total <= 48 && currentIndex >= 1;
-  const plan =
-    validNumbers && currentIndex < total && installmentCents && installmentCents > 0
-      ? planOngoingInstallments(openMonth, installmentCents, currentIndex, total)
-      : [];
-  const first = plan[0];
-  const last = plan[plan.length - 1];
-  const expenseCategories = categories.filter(
-    (category) => category.kind === "expense" && !category.archived && !category.systemKey,
-  );
-
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!description.trim()) return setError("Descreva a compra.");
-    if (!installmentCents || installmentCents <= 0) return setError("Informe o valor de cada parcela.");
-    if (!validNumbers) return setError("Informe a parcela atual e o total (de 2 a 48).");
-    if (currentIndex >= total) return setError("Se a parcela atual é a última, não há nada a lançar.");
-    const ok = await execute(
-      () =>
-        addOngoingInstallments({
-          cardId,
-          description: description.trim(),
-          categoryId: categoryId || null,
-          installmentCents,
-          currentIndex,
-          count: total,
-        }),
-      { success: "Parcelamento adicionado." },
-    );
-    if (ok) onDone();
-  }
-
-  function change(setter: (value: string) => void) {
-    return (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-      setter(event.target.value);
-      setError(null);
-    };
-  }
-
-  return (
-    <form
-      onSubmit={handleSubmit}
-      className="grid gap-4"
-    >
-      <FormField label="Descrição">
-        <Input
-          autoFocus
-          maxLength={120}
-          placeholder="Ex.: Notebook"
-          value={description}
-          onChange={change(setDescription)}
-        />
-      </FormField>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <FormField label="Valor de cada parcela">
-          <Input
-            inputMode="decimal"
-            placeholder="0,00"
-            value={amount}
-            onChange={change(setAmount)}
-          />
-        </FormField>
-        <FormField label="Categoria">
-          <Select
-            value={categoryId}
-            onChange={change(setCategoryId)}
-          >
-            <option value="">Sem categoria</option>
-            {expenseCategories.map((category) => (
-              <option
-                key={category.id}
-                value={category.id}
-              >
-                {category.name}
-              </option>
-            ))}
-          </Select>
-        </FormField>
-      </div>
-      <FormField
-        label="Qual parcela está na fatura aberta?"
-        hint={`A que aparece na ${openLabel} no app do banco.`}
-      >
-        <div className="flex items-center gap-2">
-          <Input
-            type="number"
-            inputMode="numeric"
-            min={1}
-            max={47}
-            placeholder="4"
-            aria-label="Parcela atual"
-            className="w-20"
-            value={current}
-            onChange={change(setCurrent)}
-          />
-          <span className="text-sm text-muted-foreground">de</span>
-          <Input
-            type="number"
-            inputMode="numeric"
-            min={2}
-            max={48}
-            placeholder="10"
-            aria-label="Total de parcelas"
-            className="w-20"
-            value={count}
-            onChange={change(setCount)}
-          />
-        </div>
-      </FormField>
-
-      <p className="rounded-lg bg-muted/60 px-3 py-2.5 text-[0.8125rem] text-muted-foreground">
-        {first && last && installmentCents ? (
-          <>
-            A parcela {currentIndex} já está no valor da {openLabel}. Vamos lançar as outras {plan.length}, de{" "}
-            {monthShort(first.invoiceMonth)} a {monthShort(last.invoiceMonth)}:{" "}
-            <Money
-              cents={installmentCents * plan.length}
-              className="font-semibold text-foreground"
-            />{" "}
-            no total.
-          </>
-        ) : (
-          <>A parcela atual já está no valor da {openLabel}; o app lança só as que faltam, a partir da próxima fatura.</>
-        )}
-      </p>
-
-      {error ? <p className="text-xs text-negative">{error}</p> : null}
-
-      <FormActions
-        onCancel={onDone}
-        isLoading={pending}
-        submitLabel="Adicionar"
-      />
-    </form>
   );
 }

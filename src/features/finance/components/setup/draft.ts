@@ -5,8 +5,8 @@ import {
   parseDecimalInput,
   suggestYieldCdiPct,
 } from "@/features/finance/components/accounts/presets";
-import { invoiceDates, invoiceMonthFor } from "@/features/finance/domain/card";
-import { addMonths, isDateStr } from "@/features/finance/domain/dates";
+import { defaultSettledMonth, invoiceDates, invoiceMonthFor, recentClosedInvoices } from "@/features/finance/domain/card";
+import { isDateStr } from "@/features/finance/domain/dates";
 import { parseMoneyInput } from "@/features/finance/domain/money";
 import type {
   AccountKind,
@@ -16,18 +16,19 @@ import type {
   Cents,
   DateStr,
   Institution,
+  MonthKey,
 } from "@/features/finance/domain/types";
 import { estimatedMonthlyYieldCents } from "@/features/finance/domain/yield";
 import type { SetupPayload } from "@/features/finance/server/schemas";
 
 /** Rascunho do assistente: campos como o usuário digitou; vira `SetupPayload` só no fim. */
 export type DraftCard = {
-  closingDay: string;
   dueDay: string;
+  closingDaysText: string;
   limitText: string;
   reserveKey: string | null;
-  closedUnpaidText: string;
-  openText: string;
+  /** Última fatura que já estava paga antes do app (null = nenhuma). */
+  settledThroughMonth: MonthKey | null;
 };
 
 export type DraftGoal = {
@@ -49,16 +50,6 @@ export type DraftAccount = {
   goal: DraftGoal | null;
 };
 
-export type DraftInstallment = {
-  id: string;
-  cardKey: string;
-  description: string;
-  amountText: string;
-  currentText: string;
-  countText: string;
-  categoryId: string;
-};
-
 export type DraftRecurring = {
   id: string;
   templateId: string | null;
@@ -74,7 +65,6 @@ export type DraftRecurring = {
 
 export type SetupDraft = {
   accounts: DraftAccount[];
-  installments: DraftInstallment[];
   recurrings: DraftRecurring[];
   cdiText: string;
 };
@@ -83,15 +73,11 @@ export function newDraftId() {
   return Math.random().toString(36).slice(2, 10);
 }
 
-export function newDraftCard(accounts: DraftAccount[]): DraftCard {
-  return {
-    closingDay: "28",
-    dueDay: "5",
-    limitText: "",
-    reserveKey: accounts.find((account) => account.purpose === "card_reserve")?.key ?? null,
-    closedUnpaidText: "",
-    openText: "",
-  };
+/** Padrão do Nubank: vence dia 5 e fecha 7 dias antes. */
+export function newDraftCard(reserveKey: string | null, today: DateStr): DraftCard {
+  const card: DraftCard = { dueDay: "5", closingDaysText: "7", limitText: "", reserveKey, settledThroughMonth: null };
+  const config = draftCardConfig(card);
+  return { ...card, settledThroughMonth: config ? defaultSettledMonth(config, today) : null };
 }
 
 export function newDraftAccount(
@@ -120,24 +106,16 @@ export function newDraftAccount(
  * O cenário do GM: tudo cai no Mercado Pago (saldo rende 105% do CDI, cofrinhos 120%),
  * o dia a dia sai do Cofre Saldo, a fatura do Nubank é guardada no Cofre Fatura e o Inter fica de reserva.
  */
-export function initialDraft(cdiAnnualPct: number | null): SetupDraft {
+export function initialDraft(cdiAnnualPct: number | null, today: DateStr): SetupDraft {
   return {
     accounts: [
       newDraftAccount("mp-conta", "Saldo em conta", "mercadopago", "checking", null),
       newDraftAccount("mp-saldo", "Cofre Saldo", "mercadopago", "pocket", "operating"),
       newDraftAccount("mp-fatura", "Cofre Fatura", "mercadopago", "pocket", "card_reserve"),
       newDraftAccount("nu-conta", "Conta Nubank", "nubank", "checking", null),
-      newDraftAccount("nu-cartao", "Cartão Nubank", "nubank", "credit_card", null, {
-        closingDay: "28",
-        dueDay: "5",
-        limitText: "",
-        reserveKey: "mp-fatura",
-        closedUnpaidText: "",
-        openText: "",
-      }),
+      newDraftAccount("nu-cartao", "Cartão Nubank", "nubank", "credit_card", null, newDraftCard("mp-fatura", today)),
       newDraftAccount("inter-conta", "Conta Inter", "inter", "checking", null),
     ],
-    installments: [],
     recurrings: [],
     cdiText: formatDecimal(cdiAnnualPct),
   };
@@ -149,41 +127,44 @@ function moneyOrZero(text: string): Cents | null {
 }
 
 export function draftCardConfig(card: DraftCard): CardConfig | null {
-  const closingDay = parseDayInput(card.closingDay);
   const dueDay = parseDayInput(card.dueDay);
-  if (!closingDay || !dueDay) return null;
-  return { closingDay, dueDay, limitCents: null, reserveAccountId: null, cycleOverrides: [] };
-}
-
-/** Fatura aberta hoje e a anterior (já fechada): as duas que o passo do cartão pergunta. */
-export function draftCardCycle(card: DraftCard, today: DateStr) {
-  const config = draftCardConfig(card);
-  if (!config) return null;
-  const openMonth = invoiceMonthFor(config, today);
-  const closedMonth = addMonths(openMonth, -1);
+  const closingDaysBeforeDue = Number(card.closingDaysText);
+  if (!dueDay || !Number.isInteger(closingDaysBeforeDue) || closingDaysBeforeDue < 1 || closingDaysBeforeDue > 25) {
+    return null;
+  }
   return {
-    openMonth,
-    open: invoiceDates(config, openMonth),
-    closedMonth,
-    closed: invoiceDates(config, closedMonth),
+    dueDay,
+    closingDaysBeforeDue,
+    limitCents: null,
+    reserveAccountId: null,
+    cycleOverrides: [],
+    settledThroughMonth: card.settledThroughMonth,
   };
 }
 
-/** Tira a conta e conserta quem apontava para ela (cofre da fatura, parcelamentos, fixas). */
+/** Linha do tempo para conferir as datas: duas faturas fechadas, a aberta e as opções de "já paga". */
+export function draftCardTimeline(card: DraftCard, today: DateStr) {
+  const config = draftCardConfig(card);
+  if (!config) return null;
+  const openMonth = invoiceMonthFor(config, today);
+  const closed = recentClosedInvoices(config, today);
+  return {
+    openMonth,
+    invoices: [...closed.slice(0, 2).reverse(), { month: openMonth, ...invoiceDates(config, openMonth) }],
+    settleOptions: closed,
+  };
+}
+
+/** Tira a conta e conserta quem apontava para ela (cofre da fatura, fixas). */
 export function removeDraftAccount(draft: SetupDraft, key: string): SetupDraft {
   const accounts = draft.accounts
     .filter((account) => account.key !== key)
     .map((account) =>
       account.card && account.card.reserveKey === key ? { ...account, card: { ...account.card, reserveKey: null } } : account,
     );
-  const otherCard = accounts.find((account) => account.kind === "credit_card")?.key;
   return {
     ...draft,
     accounts,
-    installments: draft.installments.flatMap((item) => {
-      if (item.cardKey !== key) return [item];
-      return otherCard ? [{ ...item, cardKey: otherCard }] : [];
-    }),
     recurrings: draft.recurrings.map((item) =>
       item.accountKey === key ? { ...item, accountKey: defaultAccountKey(accounts, "operating") } : item,
     ),
@@ -279,29 +260,12 @@ function validateAccounts(draft: SetupDraft): string | null {
 function validateCards(draft: SetupDraft): string | null {
   for (const account of draft.accounts) {
     if (!account.card) continue;
+    if (!parseDayInput(account.card.dueDay)) return `Confira o vencimento do ${account.name}: dia de 1 a 31.`;
     if (!draftCardConfig(account.card)) {
-      return `Confira fechamento e vencimento do ${account.name}: dias de 1 a 31.`;
+      return `Confira o fechamento do ${account.name}: de 1 a 25 dias antes do vencimento.`;
     }
-    for (const text of [account.card.limitText, account.card.closedUnpaidText, account.card.openText]) {
-      const cents = moneyOrZero(text);
-      if (cents === null || cents < 0) return `Valor inválido no ${account.name}.`;
-    }
-  }
-  return null;
-}
-
-function validateInstallments(draft: SetupDraft): string | null {
-  for (const item of draft.installments) {
-    const name = item.description.trim();
-    if (!name) return "Descreva cada parcelamento (ex.: Notebook).";
-    const amount = parseMoneyInput(item.amountText);
-    if (!amount || amount <= 0) return `Informe o valor da parcela de ${name}.`;
-    if (!isWholeNumber(item.countText, 2, 48) || !isWholeNumber(item.currentText, 1, Number(item.countText))) {
-      return `Confira as parcelas de ${name}: a atual vai de 1 até o total, e o total de 2 a 48.`;
-    }
-    if (!draft.accounts.some((account) => account.key === item.cardKey && account.card)) {
-      return `Escolha o cartão de ${name}.`;
-    }
+    const limit = moneyOrZero(account.card.limitText);
+    if (limit === null || limit < 0) return `Limite inválido no ${account.name}.`;
   }
   return null;
 }
@@ -324,7 +288,7 @@ function validateCdi(draft: SetupDraft): string | null {
   return null;
 }
 
-const VALIDATORS = [validateAccounts, validateCards, validateInstallments, validateRecurrings, validateCdi];
+const VALIDATORS = [validateAccounts, validateCards, validateRecurrings, validateCdi];
 
 /** Mensagem do primeiro problema do passo (ou null se está tudo certo). */
 export function validateStep(step: number, draft: SetupDraft): string | null {
@@ -352,7 +316,7 @@ export function buildSetupPayload(draft: SetupDraft): SetupPayload {
     cdiAnnualPct: parseDecimalInput(draft.cdiText),
     accounts: draft.accounts.map((account) => {
       const yields = account.kind === "checking" || account.kind === "pocket";
-      const card = account.kind === "credit_card" ? (account.card ?? newDraftCard(draft.accounts)) : null;
+      const card = account.kind === "credit_card" ? account.card : null;
       return {
         key: account.key,
         name: account.name.trim(),
@@ -364,25 +328,16 @@ export function buildSetupPayload(draft: SetupDraft): SetupPayload {
         balanceCents: account.kind === "credit_card" ? 0 : (moneyOrZero(account.balanceText) ?? 0),
         card: card
           ? {
-              closingDay: parseDayInput(card.closingDay) ?? 28,
               dueDay: parseDayInput(card.dueDay) ?? 5,
+              closingDaysBeforeDue: Number(card.closingDaysText) || 7,
               limitCents: card.limitText.trim() ? moneyOrZero(card.limitText) : null,
               reserveKey: card.reserveKey && keys.has(card.reserveKey) ? card.reserveKey : null,
-              closedUnpaidCents: moneyOrZero(card.closedUnpaidText) ?? 0,
-              openCents: moneyOrZero(card.openText) ?? 0,
+              settledThroughMonth: card.settledThroughMonth,
             }
           : null,
         goal: draftGoalPayload(account),
       };
     }),
-    installments: draft.installments.map((item) => ({
-      cardKey: item.cardKey,
-      description: item.description.trim(),
-      categoryId: item.categoryId || null,
-      installmentCents: parseMoneyInput(item.amountText) ?? 0,
-      currentIndex: Number(item.currentText),
-      count: Number(item.countText),
-    })),
     recurrings: draft.recurrings.map((item) => ({
       type: item.type,
       description: item.description.trim(),
@@ -414,18 +369,14 @@ export function summarizeDraft(draft: SetupDraft, cdiAnnualPct: number | null) {
             {
               key: account.key,
               name: account.name,
-              closingDay: account.card.closingDay,
               dueDay: account.card.dueDay,
-              owedCents: (moneyOrZero(account.card.closedUnpaidText) ?? 0) + (moneyOrZero(account.card.openText) ?? 0),
+              closingDays: account.card.closingDaysText,
+              limitCents: moneyOrZero(account.card.limitText) ?? 0,
+              settledThroughMonth: account.card.settledThroughMonth,
             },
           ]
         : [],
     ),
-    installmentCount: draft.installments.length,
-    installmentsRemainingCents: draft.installments.reduce((total, item) => {
-      const remaining = Math.max(Number(item.countText) - Number(item.currentText), 0);
-      return total + (parseMoneyInput(item.amountText) ?? 0) * remaining;
-    }, 0),
     recurringCount: draft.recurrings.length,
     incomeCents: draft.recurrings
       .filter((item) => item.type === "income")

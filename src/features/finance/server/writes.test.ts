@@ -80,7 +80,8 @@ describe("montagem dos lançamentos", () => {
 describe("reposicionar compras quando o fechamento muda", () => {
   it("move compras e parcelas pela data, respeitando as movidas à mão", () => {
     const card = accounts.find((account) => account.id === "nu-card")!;
-    const moved = { ...card, card: { ...card.card!, closingDay: 25 } };
+    // Vence dia 5 e fecha 10 dias antes: setembro fecha 25/09.
+    const moved = { ...card, card: { ...card.card!, closingDaysBeforeDue: 10 } };
     const purchase = { ...tx({ type: "expense", amountCents: 1_000, accountId: "nu-card", date: "2026-09-26", invoiceMonth: "2026-09" }), invoiceLocked: false };
     const locked = { ...tx({ type: "expense", amountCents: 1_000, accountId: "nu-card", date: "2026-09-26", invoiceMonth: "2026-09" }), invoiceLocked: true };
     const second = {

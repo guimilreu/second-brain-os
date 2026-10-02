@@ -21,22 +21,3 @@ export function planCardPurchase(card: CardConfig, date: DateStr, totalCents: Ce
     amountCents,
   }));
 }
-
-/**
- * Parcelamento que começou antes do sistema: a parcela `currentIndex` já está na fatura aberta
- * (e no valor que o banco mostra); geramos só as que faltam, a partir da fatura seguinte.
- */
-export function planOngoingInstallments(
-  openInvoiceMonth: MonthKey,
-  installmentCents: Cents,
-  currentIndex: number,
-  count: number,
-): PlannedInstallment[] {
-  const remaining = count - currentIndex;
-  return Array.from({ length: Math.max(remaining, 0) }, (_, offset) => ({
-    index: currentIndex + offset + 1,
-    count,
-    invoiceMonth: addMonths(openInvoiceMonth, offset + 1),
-    amountCents: installmentCents,
-  }));
-}

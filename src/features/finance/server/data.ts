@@ -25,15 +25,34 @@ export type FinanceContext = FinanceData & {
   setupCompleted: boolean;
 };
 
+type CategoryRow = { _id: Types.ObjectId; name: string; kind: string; systemKey?: string | null };
+
+declare global {
+  var categorySync: Map<string, Promise<void>> | undefined;
+}
+
+// Layout, página e prefetch das rotas chegam juntos: sem fila, cada requisição via "nenhuma categoria"
+// e criava todas de novo. O app roda num processo só, então basta uma tarefa por usuário por vez.
+const categorySync = (global.categorySync ??= new Map<string, Promise<void>>());
+
+export function ensureDefaultCategories(userId: string): Promise<void> {
+  const running = categorySync.get(userId);
+  if (running) return running;
+  const task = syncDefaultCategories(userId).finally(() => categorySync.delete(userId));
+  categorySync.set(userId, task);
+  return task;
+}
+
 /**
  * Garante as categorias padrão. Categorias do app antigo (sem `systemKey`) são arquivadas — não
- * apagadas — e trocadas pelas novas; em contas já migradas, só repõe as de sistema que faltarem
- * (conferência de saldo e configuração inicial dependem delas).
+ * apagadas — e trocadas pelas novas. Em contas já migradas: repõe as de sistema que faltarem
+ * (conferência de saldo e configuração inicial dependem delas) e arruma as que sobram.
  */
-export async function ensureDefaultCategories(userId: string) {
+async function syncDefaultCategories(userId: string) {
   const existing = await Category.find({ userId })
-    .select({ systemKey: 1, kind: 1 })
-    .lean<{ systemKey?: string | null; kind: string }[]>();
+    .select({ name: 1, kind: 1, systemKey: 1 })
+    .sort({ _id: 1 })
+    .lean<CategoryRow[]>();
   const current = existing.filter((category) => category.systemKey !== undefined);
 
   if (!current.length) {
@@ -46,6 +65,8 @@ export async function ensureDefaultCategories(userId: string) {
     return;
   }
 
+  await removeLeftoverCategories(userId, current);
+
   const missing = DEFAULT_CATEGORIES.filter(
     (category) =>
       category.systemKey &&
@@ -54,6 +75,47 @@ export async function ensureDefaultCategories(userId: string) {
   if (missing.length) {
     await Category.insertMany(
       missing.map((category, index) => ({ ...category, userId, sortOrder: 100 + index })),
+    );
+  }
+}
+
+/**
+ * Cópias repetidas (mesmo nome, tipo e papel) e categorias de sistema que saíram do app somem quando
+ * nada as usa. Usadas ficam: a cópia continua, e a de sistema vira categoria comum arquivada.
+ */
+async function removeLeftoverCategories(userId: string, categories: CategoryRow[]) {
+  const systemKeys = new Set<string | null>(DEFAULT_CATEGORIES.map((category) => category.systemKey));
+  const retired = categories.filter((category) => category.systemKey && !systemKeys.has(category.systemKey));
+  const groups = new Map<string, CategoryRow[]>();
+  for (const category of categories) {
+    const key = `${category.kind}|${category.systemKey ?? ""}|${category.name}`;
+    groups.set(key, [...(groups.get(key) ?? []), category]);
+  }
+  const repeated = [...groups.values()].filter((group) => group.length > 1);
+  if (!repeated.length && !retired.length) return;
+
+  const ids = [...repeated.flat(), ...retired].map((category) => category._id);
+  const filter = { userId, categoryId: { $in: ids } };
+  const [inTransactions, inRecurrings] = await Promise.all([
+    Transaction.distinct("categoryId", filter),
+    Recurring.distinct("categoryId", filter),
+  ]);
+  const used = new Set([...inTransactions, ...inRecurrings].map(String));
+  const isUsed = (category: CategoryRow) => used.has(String(category._id));
+
+  const unused = new Set(retired.filter((category) => !isUsed(category)));
+  for (const group of repeated) {
+    const keep = group.find(isUsed) ?? group[0];
+    for (const category of group) if (category !== keep && !isUsed(category)) unused.add(category);
+  }
+  if (unused.size) {
+    await Category.deleteMany({ userId, _id: { $in: [...unused].map((category) => category._id) } });
+  }
+  const archived = retired.filter((category) => !unused.has(category));
+  if (archived.length) {
+    await Category.updateMany(
+      { userId, _id: { $in: archived.map((category) => category._id) } },
+      { $set: { systemKey: null, archived: true } },
     );
   }
 }

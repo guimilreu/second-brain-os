@@ -1,5 +1,5 @@
 import type { InvoiceState } from "@/features/finance/domain/card";
-import type { Account, Cents } from "@/features/finance/domain/types";
+import type { Account, CardConfig, Cents } from "@/features/finance/domain/types";
 
 export type StatusTone = "neutral" | "primary" | "positive" | "negative" | "warning" | "info";
 
@@ -8,6 +8,7 @@ export const RESERVE_MIN_GAP = 100;
 
 type InvoiceLike = {
   state: InvoiceState;
+  settledOutside: boolean;
   itemCount: number;
   paidCents: Cents;
   totalCents: Cents;
@@ -40,6 +41,11 @@ export function headlineCents(invoice: InvoiceLike): Cents {
   if (invoice.state === "future") return invoice.forecastCents;
   if (invoice.state === "closed" || invoice.state === "overdue") return invoice.remainingCents;
   return invoice.totalCents;
+}
+
+/** "Vence dia 5 · fecha 7 dias antes" */
+export function cycleRule(card: CardConfig) {
+  return `Vence dia ${card.dueDay} · fecha ${card.closingDaysBeforeDue} dias antes`;
 }
 
 /** "no cofre Fatura", "no Cofre Fatura" ou "em Conta Nubank" — para "Guardar no cofre Fatura". */

@@ -32,6 +32,18 @@ describe("saldos", () => {
     expect(balances.get("mp-fatura")).toBe(130_000);
   });
 
+  it("compra retroativa em fatura paga antes do app não vira dívida; a parcela que ainda vem, vira", () => {
+    const settled = accounts.map((account) =>
+      account.card ? { ...account, card: { ...account.card, settledThroughMonth: "2026-08" } } : account,
+    );
+    const balances = balancesByAccount(settled, [
+      tx({ type: "expense", amountCents: 30_000, accountId: "nu-card", date: "2026-07-10", invoiceMonth: "2026-07" }),
+      tx({ type: "expense", amountCents: 30_000, accountId: "nu-card", date: "2026-07-10", invoiceMonth: "2026-08" }),
+      tx({ type: "expense", amountCents: 30_000, accountId: "nu-card", date: "2026-07-10", invoiceMonth: "2026-09" }),
+    ]);
+    expect(balances.get("nu-card")).toBe(-30_000);
+  });
+
   it("lançamento anterior ao saldo inicial não mexe no saldo (já está nele)", () => {
     const balances = balancesByAccount(accounts, [
       tx({ type: "income", amountCents: 1_000_000, accountId: "mp-saldo", date: "2026-08-31" }),

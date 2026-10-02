@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { ArrowRight, PiggyBank } from "lucide-react";
-import { diffDays } from "@/features/finance/domain/dates";
+import { addMonths, diffDays } from "@/features/finance/domain/dates";
 import { dayMonth, invoiceLabel, relativeDays, weekdayDayMonth } from "@/features/finance/domain/labels";
-import type { Cents, DateStr } from "@/features/finance/domain/types";
+import type { Cents, DateStr, MonthKey } from "@/features/finance/domain/types";
 import { InstitutionMark } from "@/features/finance/components/shared/InstitutionMark";
+import { useAction } from "@/features/finance/components/shared/useAction";
+import { settleInvoicesOutside } from "@/features/finance/server/actions";
 import { Button } from "@/components/ui/button";
 import { Meter } from "@/components/ui/Meter";
 import { Money } from "@/components/ui/Money";
@@ -13,7 +15,7 @@ import { Pill } from "@/components/ui/Pill";
 import { cn } from "@/lib/utils";
 import { useEntryStore, type EntryDraft } from "@/stores/entry-store";
 import { headlineCents, inAccount, invoiceStatus, isEmptyInvoice, RESERVE_MIN_GAP } from "./cardLabels";
-import type { InvoiceView, ReserveStatus } from "./cardView";
+import type { CardScreen, InvoiceView, ReserveStatus } from "./cardView";
 import { InvoiceTools } from "./InvoiceTools";
 
 type InvoiceHeroProps = {
@@ -24,10 +26,20 @@ type InvoiceHeroProps = {
   reserve: ReserveStatus;
   payDraft: EntryDraft | null;
   reserveDraft: EntryDraft | null;
+  settle: CardScreen["settle"];
 };
 
 /** Destaque da fatura escolhida + quanto precisa estar guardado no cofre da fatura hoje. */
-export function InvoiceHero({ cardId, invoice, today, currentYear, reserve, payDraft, reserveDraft }: InvoiceHeroProps) {
+export function InvoiceHero({
+  cardId,
+  invoice,
+  today,
+  currentYear,
+  reserve,
+  payDraft,
+  reserveDraft,
+  settle,
+}: InvoiceHeroProps) {
   return (
     <section className="overflow-hidden rounded-xl border border-border bg-card shadow-xs">
       <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)]">
@@ -36,6 +48,7 @@ export function InvoiceHero({ cardId, invoice, today, currentYear, reserve, payD
           invoice={invoice}
           today={today}
           currentYear={currentYear}
+          settle={settle}
         />
         <ReserveBlock
           reserve={reserve}
@@ -79,6 +92,9 @@ function statusLine(invoice: InvoiceView, today: DateStr): { text: string; tone:
       return { text: `Previsão. Recebe compras a partir de ${dayMonth(invoice.periodStart)}.`, tone: "default" };
     case "paid":
       if (isEmptyInvoice(invoice)) return { text: "Nenhuma compra nesta fatura.", tone: "default" };
+      if (invoice.settledOutside && !invoice.lastPaymentDate) {
+        return { text: "Paga antes do app: as compras dela contam só nos gastos do mês.", tone: "positive" };
+      }
       return {
         text: invoice.lastPaymentDate ? `Paga em ${dayMonth(invoice.lastPaymentDate)}` : "Paga",
         tone: "positive",
@@ -91,7 +107,8 @@ function InvoiceSummaryBlock({
   invoice,
   today,
   currentYear,
-}: Pick<InvoiceHeroProps, "cardId" | "invoice" | "today" | "currentYear">) {
+  settle,
+}: Pick<InvoiceHeroProps, "cardId" | "invoice" | "today" | "currentYear" | "settle">) {
   const status = invoiceStatus(invoice);
   const line = statusLine(invoice, today);
   const label = invoiceLabel(invoice.month, currentYear);
@@ -127,6 +144,13 @@ function InvoiceSummaryBlock({
       <p className={cn("mt-2 text-sm font-semibold", TONE_CLASSES[line.tone])}>
         {line.text}
       </p>
+      {settle.canMark || settle.canUndo ? (
+        <SettleToggle
+          cardId={cardId}
+          month={invoice.month}
+          undo={settle.canUndo}
+        />
+      ) : null}
 
       <dl className="mt-5 grid grid-cols-3 gap-3 border-t border-border pt-4">
         <div className="min-w-0">
@@ -226,6 +250,31 @@ function InvoiceSummaryBlock({
         </div>
       ) : null}
     </div>
+  );
+}
+
+/** Fatura que já estava paga quando o cartão entrou no app: marca (com as anteriores) ou desfaz. */
+function SettleToggle({ cardId, month, undo }: { cardId: string; month: MonthKey; undo: boolean }) {
+  const { pending, execute } = useAction();
+
+  function toggle() {
+    void execute(() => settleInvoicesOutside({ cardId, month: undo ? addMonths(month, -1) : month }), {
+      success: undo ? "A fatura voltou a ficar em aberto." : "Marcada como paga antes do app.",
+    });
+  }
+
+  return (
+    <p className="mt-1 text-[0.8125rem] text-muted-foreground">
+      {undo ? "Não estava paga? " : "Pagou antes de começar a usar o app? "}
+      <button
+        type="button"
+        onClick={toggle}
+        disabled={pending}
+        className="font-semibold text-primary-ink hover:underline disabled:opacity-60"
+      >
+        {undo ? "Desfazer" : "Marcar como paga"}
+      </button>
+    </p>
   );
 }
 

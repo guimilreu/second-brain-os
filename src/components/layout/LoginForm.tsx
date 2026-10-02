@@ -1,14 +1,12 @@
 "use client";
 
 import { Eye, EyeOff, Loader2 } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { FormField, Input } from "@/components/ui/FormField";
 
 export function LoginForm() {
-  const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -33,21 +31,22 @@ export function LoginForm() {
             ? "E-mail ou senha incorretos."
             : "O servidor não conseguiu entrar agora. Tente de novo em instantes.",
         );
+        setIsSubmitting(false);
         return;
       }
     } catch {
       toast.error("Sem conexão com o servidor. Confira sua internet.");
-      return;
-    } finally {
       setIsSubmitting(false);
+      return;
     }
 
-    router.push("/");
-    router.refresh();
+    // Carga completa: uma requisição só, já com o cookie da sessão e sem o cache do roteador de antes do login.
+    window.location.assign("/");
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    // POST: enviado antes de o JS carregar, o navegador não põe e-mail e senha na URL (nem nos logs).
+    <form onSubmit={handleSubmit} method="post" className="space-y-6">
       <div className="flex items-center gap-2.5 lg:hidden">
         <span className="grid size-8 place-items-center rounded-md bg-primary text-xs font-extrabold text-primary-foreground">
           SB

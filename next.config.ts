@@ -13,8 +13,6 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["mongoose", "bcryptjs"],
 
   experimental: {
-    // Cache em disco entre builds — acelera `next build` após a primeira compilação.
-    turbopackFileSystemCacheForBuild: true,
     // Barrel imports (ícones, gráficos) — tree-shake mais agressivo.
     optimizePackageImports: [
       "lucide-react",

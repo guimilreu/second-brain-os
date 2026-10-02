@@ -85,18 +85,20 @@ export function parseQuickEntry(input: string, today: DateStr): QuickEntryParse 
 /** Escolhe a conta que corresponde à instituição/meio citados. */
 export function resolveAccountForHints(
   accounts: Account[],
-  hints: { institution: Institution | null; method: PaymentMethod | null },
+  hints: { institution: Institution | null; method: PaymentMethod | null; allowCard?: boolean },
 ): Account | null {
   const active = accounts.filter((account) => !account.archived);
-  const wantsCard = hints.method === "credit";
   const pool = hints.institution ? active.filter((account) => account.institution === hints.institution) : active;
+  const card = hints.allowCard === false ? undefined : pool.find((account) => account.kind === "credit_card");
   if (!hints.institution && !hints.method) return null;
-  if (wantsCard) return pool.find((account) => account.kind === "credit_card") ?? null;
+  if (hints.method === "credit") return card ?? null;
   if (hints.method === "cash") return active.find((account) => account.kind === "cash") ?? null;
   return (
     pool.find((account) => account.purpose === "operating") ??
+    // Só o banco ("ifood 42,90 nubank"): sem cofre do dia a dia, é o cartão — a conta Nubank só repassa a fatura.
+    (hints.institution && !hints.method ? card : undefined) ??
     pool.find((account) => account.kind === "checking") ??
-    (hints.institution ? pool.find((account) => account.kind === "credit_card") : null) ??
+    (hints.institution ? card : undefined) ??
     null
   );
 }

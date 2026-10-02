@@ -10,7 +10,7 @@ const CategorySchema = new Schema(
     limitCents: { type: Number, default: null },
     archived: { type: Boolean, default: false },
     sortOrder: { type: Number, default: 0 },
-    systemKey: { type: String, enum: ["adjustment", "yield", "opening", null], default: null },
+    systemKey: { type: String, enum: ["adjustment", "yield", null], default: null },
   },
   { timestamps: true },
 );

@@ -1,13 +1,17 @@
-import { addMonths, dayInMonth, monthOf } from "./dates";
+import { addDays, addMonths, dayInMonth, monthOf } from "./dates";
 import type { Account, CardConfig, Cents, DateStr, MonthKey, Transaction } from "./types";
 
-/** Datas de fechamento e vencimento da fatura identificada pelo mês de fechamento. */
+/**
+ * Datas de fechamento e vencimento da fatura identificada pelo mês em que fecha.
+ * O vencimento é fixo; o fechamento é N dias antes dele, então cai em dias diferentes a cada mês.
+ */
 export function invoiceDates(card: CardConfig, month: MonthKey): { closingDate: DateStr; dueDate: DateStr } {
   const override = card.cycleOverrides.find((item) => item.month === month);
   if (override) return { closingDate: override.closingDate, dueDate: override.dueDate };
-  const closingDate = dayInMonth(month, card.closingDay);
-  const dueMonth = card.dueDay > card.closingDay ? month : addMonths(month, 1);
-  return { closingDate, dueDate: dayInMonth(dueMonth, card.dueDay) };
+  // Vencimento depois do fechamento no mesmo mês (dia 15, fecha 7 antes = dia 8) ou só no mês seguinte.
+  const dueMonth = card.dueDay > card.closingDaysBeforeDue ? month : addMonths(month, 1);
+  const dueDate = dayInMonth(dueMonth, card.dueDay);
+  return { closingDate: addDays(dueDate, -card.closingDaysBeforeDue), dueDate };
 }
 
 /**
@@ -21,6 +25,25 @@ export function invoiceMonthFor(card: CardConfig, date: DateStr): MonthKey {
     if (date < invoiceDates(card, month).closingDate) return month;
   }
   return addMonths(base, 2);
+}
+
+/** Fatura paga antes do app (até `settledThroughMonth`): histórico, sem dívida nem reserva. */
+export function isSettledOutside(card: CardConfig, month: MonthKey | null): boolean {
+  return Boolean(month && card.settledThroughMonth && month <= card.settledThroughMonth);
+}
+
+/** Faturas já fechadas, da mais recente para trás: as candidatas a "já estava paga antes do app". */
+export function recentClosedInvoices(card: CardConfig, today: DateStr, count = 3) {
+  const openMonth = invoiceMonthFor(card, today);
+  return Array.from({ length: count }, (_, index) => {
+    const month = addMonths(openMonth, -(index + 1));
+    return { month, ...invoiceDates(card, month) };
+  });
+}
+
+/** Palpite de até qual fatura já está paga: a mais recente que já venceu. */
+export function defaultSettledMonth(card: CardConfig, today: DateStr): MonthKey | null {
+  return recentClosedInvoices(card, today).find((invoice) => invoice.dueDate < today)?.month ?? null;
 }
 
 export type InvoiceState = "future" | "open" | "closed" | "overdue" | "paid";
@@ -37,6 +60,8 @@ export type InvoiceSummary = {
   remainingCents: Cents;
   state: InvoiceState;
   itemCount: number;
+  /** Paga antes do app (até `settledThroughMonth`): sem dívida, sem reserva. */
+  settledOutside: boolean;
 };
 
 export function invoiceState(
@@ -89,7 +114,9 @@ export function summarizeInvoices(card: Account, transactions: Transaction[], to
     .sort(([a], [b]) => (a < b ? -1 : 1))
     .map(([month, entry]) => {
       const totalCents = entry.charges - entry.credits;
-      const remainingCents = totalCents - entry.paid;
+      const settledOutside = isSettledOutside(config, month);
+      const paidCents = settledOutside ? Math.max(entry.paid, totalCents) : entry.paid;
+      const remainingCents = totalCents - paidCents;
       return {
         cardId: card.id,
         month,
@@ -97,10 +124,11 @@ export function summarizeInvoices(card: Account, transactions: Transaction[], to
         chargesCents: entry.charges,
         creditsCents: entry.credits,
         totalCents,
-        paidCents: entry.paid,
+        paidCents,
         remainingCents,
-        state: invoiceState(config, month, today, remainingCents),
+        state: settledOutside ? "paid" : invoiceState(config, month, today, remainingCents),
         itemCount: entry.items,
+        settledOutside,
       };
     });
 }

@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { CardHeader } from "@/features/finance/components/cards/CardHeader";
+import { CardHistoryPrompt } from "@/features/finance/components/cards/CardHistoryPrompt";
 import { CardLimit } from "@/features/finance/components/cards/CardLimit";
 import { CommitmentsChart } from "@/features/finance/components/cards/CommitmentsChart";
 import { InstallmentPlans } from "@/features/finance/components/cards/InstallmentPlans";
@@ -7,6 +8,7 @@ import { InvoiceCategories } from "@/features/finance/components/cards/InvoiceCa
 import { InvoiceHero } from "@/features/finance/components/cards/InvoiceHero";
 import { InvoiceItems } from "@/features/finance/components/cards/InvoiceItems";
 import { InvoiceTimeline } from "@/features/finance/components/cards/InvoiceTimeline";
+import { cycleRule } from "@/features/finance/components/cards/cardLabels";
 import { buildCardScreen, isCardAccount } from "@/features/finance/components/cards/cardView";
 import { isMonthKey } from "@/features/finance/domain/dates";
 import { loadFinance } from "@/features/finance/server/data";
@@ -32,10 +34,12 @@ export default async function CardPage({ params, searchParams }: CardPageProps) 
     <div className="space-y-6">
       <CardHeader
         card={card}
-        description={`Fecha dia ${card.card.closingDay} · vence dia ${card.card.dueDay}${card.archived ? " · arquivado" : ""}`}
+        description={`${cycleRule(card.card)}${card.archived ? " · arquivado" : ""}`}
         payDraft={screen.drafts.payDue}
         showAllCards={otherCards.length > 0}
       />
+
+      {screen.isEmpty ? <CardHistoryPrompt cardId={card.id} /> : null}
 
       <InvoiceTimeline
         cardId={card.id}
@@ -52,6 +56,7 @@ export default async function CardPage({ params, searchParams }: CardPageProps) 
         reserve={screen.reserve}
         payDraft={screen.drafts.paySelected}
         reserveDraft={screen.drafts.reserve}
+        settle={screen.settle}
       />
 
       <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
@@ -79,7 +84,6 @@ export default async function CardPage({ params, searchParams }: CardPageProps) 
             plans={screen.plans}
             categories={finance.categories}
             openMonth={screen.openMonth}
-            currentYear={screen.currentYear}
           />
           {screen.limit ? (
             <CardLimit

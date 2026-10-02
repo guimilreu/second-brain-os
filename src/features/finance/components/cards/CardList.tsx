@@ -6,6 +6,7 @@ import type { DateStr } from "@/features/finance/domain/types";
 import { InstitutionMark } from "@/features/finance/components/shared/InstitutionMark";
 import { Money } from "@/components/ui/Money";
 import { Pill } from "@/components/ui/Pill";
+import { cycleRule } from "./cardLabels";
 import type { CardListItem } from "./cardView";
 
 type CardListProps = {
@@ -35,7 +36,7 @@ export function CardList({ items, today }: CardListProps) {
                   {card.name}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Fecha dia {card.card.closingDay} · vence dia {card.card.dueDay}
+                  {cycleRule(card.card)}
                 </p>
               </div>
               <ChevronRight className="size-4 shrink-0 text-muted-foreground" />

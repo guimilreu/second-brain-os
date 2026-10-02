@@ -8,16 +8,18 @@ import { ColorSwatch, FormActions, FormField, Input, Select } from "@/components
 import { Modal } from "@/components/ui/Modal";
 import { institutionColor } from "@/features/finance/components/shared/InstitutionMark";
 import { useAction } from "@/features/finance/components/shared/useAction";
-import { invoiceDates, invoiceMonthFor } from "@/features/finance/domain/card";
+import { defaultSettledMonth, invoiceDates, invoiceMonthFor, recentClosedInvoices } from "@/features/finance/domain/card";
 import { dayMonth, invoiceLabel, monthShort } from "@/features/finance/domain/labels";
 import { parseMoneyInput } from "@/features/finance/domain/money";
 import type {
   Account,
   AccountKind,
   AccountPurpose,
+  CardConfig,
   Cents,
   DateStr,
   Institution,
+  MonthKey,
 } from "@/features/finance/domain/types";
 import { saveAccount } from "@/features/finance/server/actions";
 import type { AccountPayload } from "@/features/finance/server/schemas";
@@ -54,10 +56,12 @@ type FormState = {
   color: string;
   yieldText: string;
   balanceText: string;
-  closingDay: string;
   dueDay: string;
+  closingDaysText: string;
   limitText: string;
   reserveId: string;
+  /** Última fatura paga antes do cartão entrar no app ("" = nenhuma). */
+  settledMonth: string;
   targetText: string;
   targetDate: string;
   monthlyText: string;
@@ -65,7 +69,17 @@ type FormState = {
 
 type Suggestible = "name" | "color" | "yield";
 
-function initialForm(account: Account | null, balanceCents: Cents, pockets: Account[]): FormState {
+/** Padrão do Nubank: vence dia 5 e fecha 7 dias antes. */
+const DEFAULT_CARD: CardConfig = {
+  dueDay: 5,
+  closingDaysBeforeDue: 7,
+  limitCents: null,
+  reserveAccountId: null,
+  cycleOverrides: [],
+  settledThroughMonth: null,
+};
+
+function initialForm(account: Account | null, balanceCents: Cents, pockets: Account[], today: DateStr): FormState {
   if (account) {
     return {
       kind: account.kind,
@@ -75,10 +89,11 @@ function initialForm(account: Account | null, balanceCents: Cents, pockets: Acco
       color: account.color,
       yieldText: formatDecimal(account.yieldCdiPct),
       balanceText: centsToInput(balanceCents),
-      closingDay: String(account.card?.closingDay ?? 28),
       dueDay: String(account.card?.dueDay ?? 5),
+      closingDaysText: String(account.card?.closingDaysBeforeDue ?? 7),
       limitText: account.card?.limitCents != null ? centsToInput(account.card.limitCents) : "",
       reserveId: account.card?.reserveAccountId ?? "",
+      settledMonth: account.card?.settledThroughMonth ?? "",
       targetText: account.goal ? centsToInput(account.goal.targetCents) : "",
       targetDate: account.goal?.targetDate ?? "",
       monthlyText: account.goal?.monthlyCents ? centsToInput(account.goal.monthlyCents) : "",
@@ -93,10 +108,11 @@ function initialForm(account: Account | null, balanceCents: Cents, pockets: Acco
     color: institutionColor("mercadopago"),
     yieldText: formatDecimal(suggestYieldCdiPct("pocket", "mercadopago")),
     balanceText: "",
-    closingDay: "28",
-    dueDay: "5",
+    dueDay: String(DEFAULT_CARD.dueDay),
+    closingDaysText: String(DEFAULT_CARD.closingDaysBeforeDue),
     limitText: "",
     reserveId: pockets.find((pocket) => pocket.purpose === "card_reserve")?.id ?? "",
+    settledMonth: defaultSettledMonth(DEFAULT_CARD, today) ?? "",
     targetText: "",
     targetDate: "",
     monthlyText: "",
@@ -105,7 +121,7 @@ function initialForm(account: Account | null, balanceCents: Cents, pockets: Acco
 
 export function AccountDialog({ open, onClose, account, balanceCents, pockets, today }: AccountDialogProps) {
   const isEdit = account !== null;
-  const [form, setForm] = useState(() => initialForm(account, balanceCents, pockets));
+  const [form, setForm] = useState(() => initialForm(account, balanceCents, pockets, today));
   const [touched, setTouched] = useState<Record<Suggestible, boolean>>({ name: false, color: false, yield: false });
   const [showMore, setShowMore] = useState(false);
   const { pending, execute } = useAction();
@@ -140,21 +156,24 @@ export function AccountDialog({ open, onClose, account, balanceCents, pockets, t
   }
 
   // Prévia do ciclo: deixa claro em qual fatura cai uma compra de hoje.
-  const closingDay = parseDayInput(form.closingDay);
+  const year = Number(today.slice(0, 4));
   const dueDay = parseDayInput(form.dueDay);
+  const closingDays = Number(form.closingDaysText);
+  const validClosing = Number.isInteger(closingDays) && closingDays >= 1 && closingDays <= 25;
+  const config: CardConfig | null =
+    isCard && dueDay && validClosing
+      ? { ...DEFAULT_CARD, dueDay, closingDaysBeforeDue: closingDays, cycleOverrides: account?.card?.cycleOverrides ?? [] }
+      : null;
   let cyclePreview: string | null = null;
-  if (isCard && closingDay && dueDay) {
-    const config = {
-      closingDay,
-      dueDay,
-      limitCents: null,
-      reserveAccountId: null,
-      cycleOverrides: account?.card?.cycleOverrides ?? [],
-    };
+  if (config) {
     const month = invoiceMonthFor(config, today);
     const dates = invoiceDates(config, month);
-    cyclePreview = `Compra hoje cai na ${invoiceLabel(month, Number(today.slice(0, 4))).toLowerCase()}: fecha ${dayMonth(dates.closingDate)} e vence ${dayMonth(dates.dueDate)}.`;
+    cyclePreview = `Compra hoje cai na ${invoiceLabel(month, year).toLowerCase()}: fecha ${dayMonth(dates.closingDate)} e vence ${dayMonth(dates.dueDate)}.`;
   }
+  // Só faturas que fecharam antes de o cartão entrar no app podem ter sido pagas fora dele.
+  const settleOptions = config ? recentClosedInvoices(config, account?.openingDate ?? today) : [];
+  const keepsCustomSettled =
+    form.settledMonth !== "" && !settleOptions.some((option) => option.month === form.settledMonth);
 
   const targetCents = parseMoneyInput(form.targetText);
   const savedCents = isEdit ? balanceCents : (parseMoneyInput(form.balanceText) ?? 0);
@@ -181,10 +200,17 @@ export function AccountDialog({ open, onClose, account, balanceCents, pockets, t
 
     let card: AccountPayload["card"] = null;
     if (isCard) {
-      if (!closingDay || !dueDay) return "Fechamento e vencimento são dias de 1 a 31.";
+      if (!dueDay) return "O vencimento é um dia de 1 a 31.";
+      if (!validClosing) return "O fechamento vai de 1 a 25 dias antes do vencimento.";
       const limitCents = form.limitText.trim() ? parseMoneyInput(form.limitText) : null;
       if (form.limitText.trim() && (limitCents === null || limitCents < 0)) return "Limite inválido.";
-      card = { closingDay, dueDay, limitCents, reserveAccountId: form.reserveId || null };
+      card = {
+        dueDay,
+        closingDaysBeforeDue: closingDays,
+        limitCents,
+        reserveAccountId: form.reserveId || null,
+        settledThroughMonth: (form.settledMonth || null) as MonthKey | null,
+      };
     }
 
     let goal: AccountPayload["goal"] = null;
@@ -288,17 +314,6 @@ export function AccountDialog({ open, onClose, account, balanceCents, pockets, t
         {isCard ? (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
-              <FormField label="Fecha dia">
-                <Input
-                  type="number"
-                  inputMode="numeric"
-                  min={1}
-                  max={31}
-                  value={form.closingDay}
-                  onChange={(event) => update({ closingDay: event.target.value })}
-                  className="num"
-                />
-              </FormField>
               <FormField label="Vence dia">
                 <Input
                   type="number"
@@ -310,6 +325,17 @@ export function AccountDialog({ open, onClose, account, balanceCents, pockets, t
                   className="num"
                 />
               </FormField>
+              <FormField label="Fecha" hint="Dias antes do vencimento (Nubank: 7).">
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  max={25}
+                  value={form.closingDaysText}
+                  onChange={(event) => update({ closingDaysText: event.target.value })}
+                  className="num"
+                />
+              </FormField>
             </div>
             {cyclePreview ? (
               <p className="rounded-lg bg-muted/60 px-3 py-2.5 text-[0.8125rem]">
@@ -318,7 +344,7 @@ export function AccountDialog({ open, onClose, account, balanceCents, pockets, t
               </p>
             ) : null}
             <div className="grid gap-4 sm:grid-cols-2">
-              <FormField label="Limite" hint="Opcional.">
+              <FormField label="Limite total" hint="O do cartão, não o disponível. Opcional.">
                 <MoneyInput value={form.limitText} onValueChange={(limitText) => update({ limitText })} />
               </FormField>
               <FormField label="Cofre da fatura" hint="Onde você junta o dinheiro da fatura.">
@@ -332,6 +358,23 @@ export function AccountDialog({ open, onClose, account, balanceCents, pockets, t
                 </Select>
               </FormField>
             </div>
+            <FormField
+              label="Última fatura já paga antes do app"
+              hint="Compras que caem nela ou antes contam nos gastos de cada mês, mas não como dívida nem na reserva."
+            >
+              <Select value={form.settledMonth} onChange={(event) => update({ settledMonth: event.target.value })}>
+                {keepsCustomSettled ? (
+                  <option value={form.settledMonth}>{invoiceLabel(form.settledMonth, year)}</option>
+                ) : null}
+                {settleOptions.map((option) => (
+                  <option key={option.month} value={option.month}>
+                    {invoiceLabel(option.month, year)} · {option.dueDate < today ? "venceu" : "vence"}{" "}
+                    {dayMonth(option.dueDate)}
+                  </option>
+                ))}
+                <option value="">Nenhuma — os pagamentos são registrados no app</option>
+              </Select>
+            </FormField>
           </div>
         ) : null}
 

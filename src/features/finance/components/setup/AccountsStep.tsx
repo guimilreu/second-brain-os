@@ -97,6 +97,7 @@ export function AccountsStep({ draft, setDraft, today }: AccountsStepProps) {
         onClose={() => setAdding((current) => ({ ...current, open: false }))}
         onAdd={(account) => setDraft((current) => ({ ...current, accounts: [...current.accounts, account] }))}
         accounts={draft.accounts}
+        today={today}
       />
     </Panel>
   );
@@ -138,7 +139,7 @@ function AccountDraftRow({
           </div>
         </div>
         {isCard ? (
-          <p className="col-span-2 text-xs text-muted-foreground sm:pt-7">Datas e fatura no próximo passo.</p>
+          <p className="col-span-2 text-xs text-muted-foreground sm:pt-7">Vencimento, fechamento e limite no próximo passo.</p>
         ) : (
           <>
             <FormField label="Saldo atual">
@@ -204,11 +205,13 @@ function AddAccountDialog({
   onClose,
   onAdd,
   accounts,
+  today,
 }: {
   open: boolean;
   onClose: () => void;
   onAdd: (account: DraftAccount) => void;
   accounts: DraftAccount[];
+  today: DateStr;
 }) {
   const [kind, setKind] = useState<AccountKind>("pocket");
   const [institution, setInstitution] = useState<Institution>("mercadopago");
@@ -232,7 +235,9 @@ function AddAccountDialog({
         finalInstitution,
         kind,
         finalPurpose,
-        kind === "credit_card" ? newDraftCard(accounts) : null,
+        kind === "credit_card"
+          ? newDraftCard(accounts.find((account) => account.purpose === "card_reserve")?.key ?? null, today)
+          : null,
       ),
     );
     onClose();

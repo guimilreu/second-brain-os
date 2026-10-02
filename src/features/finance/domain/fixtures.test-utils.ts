@@ -2,11 +2,12 @@ import { competenceOf } from "./ledger";
 import type { Account, CardConfig, Category, Recurring, Transaction } from "./types";
 
 export const NUBANK_CARD: CardConfig = {
-  closingDay: 28,
   dueDay: 5,
+  closingDaysBeforeDue: 7,
   limitCents: 1_000_000,
   reserveAccountId: "mp-fatura",
   cycleOverrides: [],
+  settledThroughMonth: null,
 };
 
 function account(partial: Partial<Account> & Pick<Account, "id" | "name" | "kind">): Account {

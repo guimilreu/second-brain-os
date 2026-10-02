@@ -4,6 +4,7 @@ import {
   invoiceDates,
   invoiceMonthFor,
   invoiceState,
+  isSettledOutside,
   summarizeInvoices,
   type InvoiceState,
   type InvoiceSummary,
@@ -111,6 +112,10 @@ export type CardScreen = {
   plans: InstallmentPlan[];
   reserve: ReserveStatus;
   limit: { limitCents: Cents; usedCents: Cents } | null;
+  /** Nenhuma compra lançada ainda: a tela convida a lançar o histórico do cartão. */
+  isEmpty: boolean;
+  /** "Já estava paga antes do app" na fatura escolhida: marcar (até ela) ou desfazer. */
+  settle: { canMark: boolean; canUndo: boolean };
   drafts: {
     /** "Pagar fatura" do topo: a fechada mais antiga em aberto. */
     payDue: EntryDraft | null;
@@ -125,7 +130,7 @@ type ItemKind = "purchase" | "installment" | "fixed" | "adjustment";
 
 function itemKind(tx: Transaction, systemCategoryIds: Set<string>): ItemKind {
   if (tx.type === "refund") return "adjustment";
-  // "Antes do app" e "Ajuste da fatura" usam categorias do sistema.
+  // "Ajuste da fatura" usa categoria do sistema.
   if (tx.categoryId && systemCategoryIds.has(tx.categoryId)) return "adjustment";
   if (tx.recurringId) return "fixed";
   if (tx.installment && tx.installment.count > 1) return "installment";
@@ -148,6 +153,7 @@ function pushTo<K, V>(map: Map<K, V[]>, key: K, value: V) {
 }
 
 function emptySummary(card: CardAccount, month: MonthKey, today: DateStr): InvoiceSummary {
+  const settledOutside = isSettledOutside(card.card, month);
   return {
     cardId: card.id,
     month,
@@ -157,8 +163,9 @@ function emptySummary(card: CardAccount, month: MonthKey, today: DateStr): Invoi
     totalCents: 0,
     paidCents: 0,
     remainingCents: 0,
-    state: invoiceState(card.card, month, today, 0),
+    state: settledOutside ? "paid" : invoiceState(card.card, month, today, 0),
     itemCount: 0,
+    settledOutside,
   };
 }
 
@@ -350,6 +357,13 @@ export function buildCardScreen(data: FinanceData, card: CardAccount, requestedM
     plans,
     reserve,
     limit: config.limitCents ? { limitCents: config.limitCents, usedCents: cardUsedLimitCents(summaries) } : null,
+    isEmpty: chargesByMonth.size === 0,
+    settle: {
+      // Só fatura que fechou antes de o cartão entrar no app pode ter sido paga fora dele.
+      canMark:
+        (selected.state === "closed" || selected.state === "overdue") && selected.closingDate <= card.openingDate,
+      canUndo: selected.settledOutside && selected.month === config.settledThroughMonth,
+    },
     drafts: {
       payDue: dueSummary ? payDraft(viewFor(dueSummary.month)) : null,
       paySelected:

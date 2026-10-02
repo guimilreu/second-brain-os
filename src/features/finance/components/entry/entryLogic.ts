@@ -1,4 +1,4 @@
-import { invoiceDates, invoiceMonthFor } from "@/features/finance/domain/card";
+import { invoiceDates, invoiceMonthFor, isSettledOutside } from "@/features/finance/domain/card";
 import { addMonths } from "@/features/finance/domain/dates";
 import { planCardPurchase } from "@/features/finance/domain/installments";
 import { INSTITUTION_LABELS, invoiceLabel } from "@/features/finance/domain/labels";
@@ -130,9 +130,7 @@ export function hintedAccount(
       .sort((a, b) => (usage[b.id] ?? 0) - (usage[a.id] ?? 0));
     if (used[0]) return used[0];
   }
-  const resolved = resolveAccountForHints(accounts, { institution: parse.institution, method: parse.method });
-  if (resolved && !allowCard && resolved.kind === "credit_card") return null;
-  return resolved;
+  return resolveAccountForHints(accounts, { institution: parse.institution, method: parse.method, allowCard });
 }
 
 export function categoryKindFor(type: TxType): CategoryKind {
@@ -199,6 +197,8 @@ export type CardPurchasePreview = {
   installmentCents: Cents | null;
   /** Quanto cai em cada fatura, a partir da primeira. */
   amounts: Cents[];
+  /** Parcelas que caem em faturas pagas antes do app (compra retroativa): só histórico. */
+  settledCount: number;
 };
 
 export function cardPurchasePreview(
@@ -215,6 +215,7 @@ export function cardPurchasePreview(
     amountCents === null ? null : amountMode === "installment" && count > 1 ? amountCents * count : amountCents;
   // Escolher outra fatura desloca a compra inteira (o servidor faz o mesmo).
   const plan = totalCents ? planCardPurchase(card, date, totalCents, count) : [];
+  const months = Array.from({ length: count }, (_, index) => addMonths(firstInvoice, index));
   return {
     autoInvoice,
     firstInvoice,
@@ -224,6 +225,7 @@ export function cardPurchasePreview(
     totalCents,
     installmentCents: plan.length ? plan[plan.length - 1].amountCents : null,
     amounts: plan.map((item) => item.amountCents),
+    settledCount: months.filter((month) => isSettledOutside(card, month)).length,
   };
 }
 

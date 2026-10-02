@@ -24,6 +24,7 @@ function dateHint(invoice: InvoiceView) {
       return `venceu ${dayMonth(invoice.dueDate)}`;
     case "paid":
       if (invoice.lastPaymentDate) return `paga ${dayMonth(invoice.lastPaymentDate)}`;
+      if (invoice.settledOutside && !isEmptyInvoice(invoice)) return "paga antes do app";
       return isEmptyInvoice(invoice) ? `fechou ${dayMonth(invoice.closingDate)}` : `venceu ${dayMonth(invoice.dueDate)}`;
     default:
       return `vence ${dayMonth(invoice.dueDate)}`;

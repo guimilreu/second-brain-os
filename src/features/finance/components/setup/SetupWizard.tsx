@@ -13,11 +13,10 @@ import { cn } from "@/lib/utils";
 import { AccountsStep } from "./AccountsStep";
 import { CardStep } from "./CardStep";
 import { buildSetupPayload, initialDraft, STEP_COUNT, validateStep } from "./draft";
-import { InstallmentsStep } from "./InstallmentsStep";
 import { RecurringStep } from "./RecurringStep";
 import { ReviewStep } from "./ReviewStep";
 
-const STEPS = ["Contas", "Cartão", "Parcelamentos", "Fixas", "CDI e revisão"];
+const STEPS = ["Contas", "Cartão", "Fixas", "CDI e revisão"];
 
 type SetupWizardProps = {
   /** Categorias editáveis do usuário (sem as de sistema e arquivadas). */
@@ -28,13 +27,11 @@ type SetupWizardProps = {
 
 export function SetupWizard({ categories, today, cdiAnnualPct }: SetupWizardProps) {
   const router = useRouter();
-  const [draft, setDraft] = useState(() => initialDraft(cdiAnnualPct));
+  const [draft, setDraft] = useState(() => initialDraft(cdiAnnualPct, today));
   const [step, setStep] = useState(0);
   const { pending, execute } = useAction();
   const isLast = step === STEP_COUNT - 1;
-  const expenseCategories = categories.filter((category) => category.kind === "expense");
-  const optionalEmpty =
-    (step === 2 && draft.installments.length === 0) || (step === 3 && draft.recurrings.length === 0);
+  const optionalEmpty = step === 2 && draft.recurrings.length === 0;
 
   function goTo(next: number) {
     setStep(next);
@@ -60,8 +57,9 @@ export function SetupWizard({ categories, today, cdiAnnualPct }: SetupWizardProp
       }
     }
     void execute(() => completeSetup(buildSetupPayload(draft)), {
-      success: "Pronto! Seu cenário está montado.",
-      onSuccess: () => router.push("/"),
+      success: "Pronto! Agora lance as compras que já estão no cartão.",
+      // Próximo passo natural: o histórico do cartão, que cai sozinho nas faturas certas.
+      onSuccess: (result) => router.push(result.cardId ? `/cards/${result.cardId}` : "/"),
     });
   }
 
@@ -119,11 +117,10 @@ export function SetupWizard({ categories, today, cdiAnnualPct }: SetupWizardProp
 
       {step === 0 ? <AccountsStep draft={draft} setDraft={setDraft} today={today} /> : null}
       {step === 1 ? <CardStep draft={draft} setDraft={setDraft} today={today} /> : null}
-      {step === 2 ? (
-        <InstallmentsStep draft={draft} setDraft={setDraft} categories={expenseCategories} today={today} />
+      {step === 2 ? <RecurringStep draft={draft} setDraft={setDraft} categories={categories} /> : null}
+      {step === 3 ? (
+        <ReviewStep draft={draft} year={Number(today.slice(0, 4))} setDraft={setDraft} onEdit={goTo} />
       ) : null}
-      {step === 3 ? <RecurringStep draft={draft} setDraft={setDraft} categories={categories} /> : null}
-      {step === 4 ? <ReviewStep draft={draft} setDraft={setDraft} onEdit={goTo} /> : null}
 
       {/* Fica acima da barra inferior do mobile e à direita da sidebar no desktop. */}
       <div className="fixed inset-x-0 bottom-16 z-20 border-t border-border bg-background/95 backdrop-blur-md sm:bottom-0 lg:left-60">

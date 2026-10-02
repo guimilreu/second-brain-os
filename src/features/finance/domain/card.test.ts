@@ -1,35 +1,39 @@
 import { describe, expect, it } from "vitest";
-import { cardReserveNeededCents, cardUsedLimitCents, invoiceDates, invoiceMonthFor, summarizeInvoices } from "./card";
+import {
+  cardReserveNeededCents,
+  cardUsedLimitCents,
+  defaultSettledMonth,
+  invoiceDates,
+  invoiceMonthFor,
+  summarizeInvoices,
+} from "./card";
 import { NUBANK_CARD, scenarioAccounts, tx } from "./fixtures.test-utils";
 
-describe("ciclo da fatura (fecha 28, vence 5)", () => {
+describe("ciclo da fatura (vence dia 5, fecha 7 dias antes — regra do Nubank)", () => {
+  it("o fechamento muda conforme o mês: setembro fechou 28/09, outubro fecha 29/10", () => {
+    expect(invoiceDates(NUBANK_CARD, "2026-09")).toEqual({ closingDate: "2026-09-28", dueDate: "2026-10-05" });
+    expect(invoiceDates(NUBANK_CARD, "2026-10")).toEqual({ closingDate: "2026-10-29", dueDate: "2026-11-05" });
+    // Fevereiro curto: vence 05/03 → fecha 26/02.
+    expect(invoiceDates(NUBANK_CARD, "2027-02").closingDate).toBe("2027-02-26");
+  });
+
   it("compra de 30/set cai na fatura de outubro, que vence 05/nov", () => {
-    const month = invoiceMonthFor(NUBANK_CARD, "2026-09-30");
-    expect(month).toBe("2026-10");
-    expect(invoiceDates(NUBANK_CARD, month)).toEqual({ closingDate: "2026-10-28", dueDate: "2026-11-05" });
+    expect(invoiceMonthFor(NUBANK_CARD, "2026-09-30")).toBe("2026-10");
   });
 
-  it("compra antes do fechamento fica na fatura do mês", () => {
+  it("compra antes do fechamento fica na fatura do mês; no dia do fechamento já vai para a próxima", () => {
     expect(invoiceMonthFor(NUBANK_CARD, "2026-09-27")).toBe("2026-09");
-    expect(invoiceDates(NUBANK_CARD, "2026-09").dueDate).toBe("2026-10-05");
-  });
-
-  it("compra no dia do fechamento já vai para a próxima", () => {
     expect(invoiceMonthFor(NUBANK_CARD, "2026-09-28")).toBe("2026-10");
+    expect(invoiceMonthFor(NUBANK_CARD, "2026-10-28")).toBe("2026-10");
+    expect(invoiceMonthFor(NUBANK_CARD, "2026-10-29")).toBe("2026-11");
   });
 
-  it("fechamento em dia que não existe usa o último dia do mês", () => {
-    const card = { ...NUBANK_CARD, closingDay: 31, dueDay: 8 };
-    expect(invoiceDates(card, "2027-02").closingDate).toBe("2027-02-28");
-    expect(invoiceMonthFor(card, "2027-02-28")).toBe("2027-03");
+  it("vencimento no meio do mês fecha no mesmo mês", () => {
+    const card = { ...NUBANK_CARD, dueDay: 15 };
+    expect(invoiceDates(card, "2026-10")).toEqual({ closingDate: "2026-10-08", dueDate: "2026-10-15" });
   });
 
-  it("vencimento depois do fechamento no mesmo mês", () => {
-    const card = { ...NUBANK_CARD, closingDay: 3, dueDay: 10 };
-    expect(invoiceDates(card, "2026-10")).toEqual({ closingDate: "2026-10-03", dueDate: "2026-10-10" });
-  });
-
-  it("datas ajustadas manualmente valem para aquela fatura", () => {
+  it("datas ajustadas à mão valem para aquela fatura", () => {
     const card = {
       ...NUBANK_CARD,
       cycleOverrides: [{ month: "2026-10", closingDate: "2026-10-26", dueDate: "2026-11-03" }],
@@ -53,7 +57,7 @@ describe("resumo das faturas", () => {
     const sep = invoices.find((invoice) => invoice.month === "2026-09")!;
     const oct = invoices.find((invoice) => invoice.month === "2026-10")!;
     const nov = invoices.find((invoice) => invoice.month === "2026-11")!;
-    expect(sep).toMatchObject({ state: "closed", remainingCents: 150_000, dueDate: "2026-10-05" });
+    expect(sep).toMatchObject({ state: "closed", remainingCents: 150_000, dueDate: "2026-10-05", settledOutside: false });
     expect(oct).toMatchObject({ state: "open", totalCents: 5_000 });
     expect(nov.state).toBe("future");
     expect(cardReserveNeededCents(invoices)).toBe(155_000);
@@ -83,5 +87,42 @@ describe("resumo das faturas", () => {
     ];
     const invoices = summarizeInvoices(card, transactions, "2026-10-07");
     expect(invoices.find((invoice) => invoice.month === "2026-09")!.state).toBe("overdue");
+  });
+});
+
+describe("faturas pagas antes do app", () => {
+  it("compra parcelada antiga: as parcelas das faturas já pagas viram histórico, o resto é dívida", () => {
+    const base = scenarioAccounts().find((account) => account.id === "nu-card")!;
+    const card = { ...base, card: { ...base.card!, settledThroughMonth: "2026-08" } };
+    // Notebook comprado em 10/06 em 10x de R$ 300: faturas de jun/26 a mar/27.
+    const transactions = Array.from({ length: 10 }, (_, index) =>
+      tx({
+        type: "expense",
+        amountCents: 30_000,
+        accountId: "nu-card",
+        date: "2026-06-10",
+        invoiceMonth: `${index < 7 ? "2026" : "2027"}-${String(((5 + index) % 12) + 1).padStart(2, "0")}`,
+        installment: { groupId: "nb", index: index + 1, count: 10 },
+      }),
+    );
+    const invoices = summarizeInvoices(card, transactions, "2026-10-02");
+    const august = invoices.find((invoice) => invoice.month === "2026-08")!;
+    expect(august).toMatchObject({ state: "paid", settledOutside: true, remainingCents: 0 });
+    expect(invoices.find((invoice) => invoice.month === "2026-09")!.state).toBe("closed");
+    // Dívida = parcelas 4 a 10 (set/26 a mar/27).
+    expect(cardUsedLimitCents(invoices)).toBe(7 * 30_000);
+    // Reserva: fatura de setembro (fechada) + outubro (aberta).
+    expect(cardReserveNeededCents(invoices)).toBe(2 * 30_000);
+  });
+});
+
+describe("até qual fatura já estava paga", () => {
+  it("palpite: a fatura fechada mais recente que já venceu", () => {
+    // 02/10: setembro fechou 28/09 mas só vence 05/10 → agosto.
+    expect(defaultSettledMonth(NUBANK_CARD, "2026-10-02")).toBe("2026-08");
+    expect(defaultSettledMonth(NUBANK_CARD, "2026-10-05")).toBe("2026-08");
+    expect(defaultSettledMonth(NUBANK_CARD, "2026-10-06")).toBe("2026-09");
+    // No dia do fechamento a fatura já está fechada, mas ainda não venceu.
+    expect(defaultSettledMonth(NUBANK_CARD, "2026-10-29")).toBe("2026-09");
   });
 });

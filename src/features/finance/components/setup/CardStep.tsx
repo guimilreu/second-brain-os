@@ -1,14 +1,15 @@
 "use client";
 
-import { CreditCard } from "lucide-react";
+import { CreditCard, History } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { FormField, Input, Select } from "@/components/ui/FormField";
 import { Panel } from "@/components/ui/Panel";
+import { Pill } from "@/components/ui/Pill";
 import { MoneyInput } from "@/features/finance/components/accounts/fields";
 import { InstitutionMark } from "@/features/finance/components/shared/InstitutionMark";
 import { dayMonth, INSTITUTION_LABELS, invoiceLabel } from "@/features/finance/domain/labels";
-import type { DateStr } from "@/features/finance/domain/types";
-import { draftCardCycle, type DraftAccount, type DraftCard, type SetupDraft } from "./draft";
+import type { DateStr, MonthKey } from "@/features/finance/domain/types";
+import { draftCardTimeline, type DraftAccount, type DraftCard, type SetupDraft } from "./draft";
 
 type CardStepProps = {
   draft: SetupDraft;
@@ -55,6 +56,17 @@ export function CardStep({ draft, setDraft, today }: CardStepProps) {
           />
         ) : null,
       )}
+
+      <div className="flex gap-3 rounded-xl border border-border bg-card p-4 text-[0.8125rem] shadow-xs">
+        <History className="mt-0.5 size-4 shrink-0 text-primary-ink" />
+        <p>
+          <span className="font-semibold">As compras entram depois, com a data real.</span>{" "}
+          <span className="text-muted-foreground">
+            Ao concluir, lance o que ainda vai ser cobrado — inclusive parcelados antigos — ou importe o CSV da fatura.
+            Cada compra cai sozinha na fatura certa, e as parcelas nas seguintes.
+          </span>
+        </p>
+      </div>
     </div>
   );
 }
@@ -72,10 +84,13 @@ function CardForm({
   today: DateStr;
   onChange: (patch: Partial<DraftCard>) => void;
 }) {
-  const cycle = draftCardCycle(card, today);
+  const timeline = draftCardTimeline(card, today);
   const year = Number(today.slice(0, 4));
   const bank = account.institution === "other" ? "do banco" : `do ${INSTITUTION_LABELS[account.institution]}`;
-  const closedOverdue = cycle ? today > cycle.closed.dueDate : false;
+  const settled = card.settledThroughMonth;
+  const settleOptions = timeline?.settleOptions ?? [];
+  // Mantém a escolha visível mesmo se mudar o vencimento e ela sair da lista das últimas faturas.
+  const keepsCustom = settled !== null && !settleOptions.some((option) => option.month === settled);
 
   return (
     <Panel
@@ -85,21 +100,10 @@ function CardForm({
           {account.name}
         </span>
       }
-      description={`Confira as datas no app ${bank}.`}
+      description={`Os padrões do cartão. Confira no app ${bank}.`}
     >
       <div className="space-y-5">
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <FormField label="Fecha dia">
-            <Input
-              type="number"
-              inputMode="numeric"
-              min={1}
-              max={31}
-              value={card.closingDay}
-              onChange={(event) => onChange({ closingDay: event.target.value })}
-              className="num"
-            />
-          </FormField>
           <FormField label="Vence dia">
             <Input
               type="number"
@@ -111,7 +115,18 @@ function CardForm({
               className="num"
             />
           </FormField>
-          <FormField label="Limite" hint="Opcional.">
+          <FormField label="Fecha" hint="Dias antes do vencimento.">
+            <Input
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={25}
+              value={card.closingDaysText}
+              onChange={(event) => onChange({ closingDaysText: event.target.value })}
+              className="num"
+            />
+          </FormField>
+          <FormField label="Limite total" hint="O do cartão, não o disponível.">
             <MoneyInput value={card.limitText} onValueChange={(limitText) => onChange({ limitText })} />
           </FormField>
           <FormField label="Cofre da fatura">
@@ -129,37 +144,57 @@ function CardForm({
           </FormField>
         </div>
 
-        {cycle ? (
-          <p className="rounded-lg bg-muted/60 px-3 py-2.5 text-[0.8125rem]">
-            Compras de hoje caem na{" "}
-            <strong className="font-semibold">{invoiceLabel(cycle.openMonth, year).toLowerCase()}</strong>: fecha{" "}
-            {dayMonth(cycle.open.closingDate)} e vence {dayMonth(cycle.open.dueDate)}.
-          </p>
+        {timeline ? (
+          <div className="rounded-lg bg-muted/60">
+            <ul className="divide-y divide-border/70">
+              {timeline.invoices.map((invoice) => {
+                const isOpen = invoice.month === timeline.openMonth;
+                const isSettled = !isOpen && settled !== null && invoice.month <= settled;
+                return (
+                  <li key={invoice.month} className="flex items-center gap-3 px-3 py-2.5">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[0.8125rem] font-semibold">{invoiceLabel(invoice.month, year)}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {invoice.closingDate <= today ? "fechou" : "fecha"} {dayMonth(invoice.closingDate)} ·{" "}
+                        {invoice.dueDate < today ? "venceu" : "vence"} {dayMonth(invoice.dueDate)}
+                      </p>
+                    </div>
+                    {isOpen ? (
+                      <Pill tone="primary">Aberta · compras de hoje</Pill>
+                    ) : isSettled ? (
+                      <Pill tone="positive">Paga</Pill>
+                    ) : (
+                      <Pill tone="warning">A pagar</Pill>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+            <p className="border-t border-border/70 px-3 py-2 text-xs text-muted-foreground">
+              Se uma fatura fechar em outro dia, dá para ajustar só ela depois, na tela do cartão.
+            </p>
+          </div>
         ) : null}
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <FormField
-            label={cycle ? `${invoiceLabel(cycle.closedMonth, year)}, ainda não paga` : "Fatura fechada, ainda não paga"}
-            hint={
-              cycle
-                ? closedOverdue
-                  ? `Venceu ${dayMonth(cycle.closed.dueDate)}. Só preencha se ainda não pagou.`
-                  : `Vence ${dayMonth(cycle.closed.dueDate)}. Quanto falta pagar; se já pagou, deixe vazio.`
-                : "Quanto falta pagar; se já pagou, deixe vazio."
-            }
+        <FormField
+          label="Última fatura já paga"
+          hint="Compras que caem nela ou antes contam nos gastos de cada mês, mas não como dívida nem na reserva."
+        >
+          <Select
+            value={settled ?? ""}
+            onChange={(event) => onChange({ settledThroughMonth: (event.target.value || null) as MonthKey | null })}
+            className="sm:max-w-sm"
           >
-            <MoneyInput
-              value={card.closedUnpaidText}
-              onValueChange={(closedUnpaidText) => onChange({ closedUnpaidText })}
-            />
-          </FormField>
-          <FormField
-            label={cycle ? `${invoiceLabel(cycle.openMonth, year)}, aberta hoje` : "Fatura aberta hoje"}
-            hint="O valor que o app mostra agora, já com as parcelas deste mês."
-          >
-            <MoneyInput value={card.openText} onValueChange={(openText) => onChange({ openText })} />
-          </FormField>
-        </div>
+            {keepsCustom ? <option value={settled}>{invoiceLabel(settled, year)}</option> : null}
+            {settleOptions.map((option) => (
+              <option key={option.month} value={option.month}>
+                {invoiceLabel(option.month, year)} · {option.dueDate < today ? "venceu" : "vence"}{" "}
+                {dayMonth(option.dueDate)}
+              </option>
+            ))}
+            <option value="">Nenhuma — vou registrar os pagamentos</option>
+          </Select>
+        </FormField>
       </div>
     </Panel>
   );

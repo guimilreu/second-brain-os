@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { planCardPurchase, planOngoingInstallments, splitAmount } from "./installments";
+import { planCardPurchase, splitAmount } from "./installments";
 import { NUBANK_CARD } from "./fixtures.test-utils";
 
 describe("parcelas", () => {
@@ -14,10 +14,10 @@ describe("parcelas", () => {
     expect(plan[11].invoiceMonth).toBe("2027-09");
   });
 
-  it("parcelamento em andamento gera só as parcelas depois da fatura aberta", () => {
-    const plan = planOngoingInstallments("2026-10", 30_000, 4, 10);
-    expect(plan).toHaveLength(6);
-    expect(plan[0]).toEqual({ index: 5, count: 10, invoiceMonth: "2026-11", amountCents: 30_000 });
-    expect(plan[5]).toMatchObject({ index: 10, invoiceMonth: "2027-04" });
+  it("compra antiga parcelada começa na fatura da data da compra", () => {
+    const plan = planCardPurchase(NUBANK_CARD, "2026-06-10", 300_000, 10);
+    expect(plan[0].invoiceMonth).toBe("2026-06");
+    expect(plan[3]).toMatchObject({ index: 4, invoiceMonth: "2026-09" });
+    expect(plan[9].invoiceMonth).toBe("2027-03");
   });
 });

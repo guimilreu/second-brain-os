@@ -22,8 +22,8 @@ export function toAccount(doc: Lean): Account {
     sortOrder: Number(doc.sortOrder ?? 0),
     card: card
       ? {
-          closingDay: Number(card.closingDay),
           dueDay: Number(card.dueDay),
+          closingDaysBeforeDue: Number(card.closingDaysBeforeDue ?? 7),
           limitCents: (card.limitCents as number | null) ?? null,
           reserveAccountId: idOf(card.reserveAccountId),
           cycleOverrides: ((card.cycleOverrides as CycleOverride[] | undefined) ?? []).map((item) => ({
@@ -31,6 +31,7 @@ export function toAccount(doc: Lean): Account {
             closingDate: item.closingDate,
             dueDate: item.dueDate,
           })),
+          settledThroughMonth: (card.settledThroughMonth as string | null) ?? null,
         }
       : null,
     goal: goal

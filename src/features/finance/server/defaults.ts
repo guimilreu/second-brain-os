@@ -20,7 +20,6 @@ export const DEFAULT_CATEGORIES: CategorySeed[] = [
   { name: "Impostos e taxas", kind: "expense", color: "#78716c", icon: "receipt", systemKey: null },
   { name: "Outros", kind: "expense", color: "#94a3b8", icon: "circle-ellipsis", systemKey: null },
   { name: "Ajuste de saldo", kind: "expense", color: "#94a3b8", icon: "scale", systemKey: "adjustment" },
-  { name: "Antes do app", kind: "expense", color: "#94a3b8", icon: "history", systemKey: "opening" },
   { name: "Salário", kind: "income", color: "#10b981", icon: "briefcase", systemKey: null },
   { name: "Freelance", kind: "income", color: "#22c55e", icon: "laptop", systemKey: null },
   { name: "Rendimentos", kind: "income", color: "#14b8a6", icon: "trending-up", systemKey: "yield" },

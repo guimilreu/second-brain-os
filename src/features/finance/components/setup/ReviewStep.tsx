@@ -6,10 +6,12 @@ import { Money } from "@/components/ui/Money";
 import { Panel } from "@/components/ui/Panel";
 import { PercentInput } from "@/features/finance/components/accounts/fields";
 import { formatDecimal, parseDecimalInput } from "@/features/finance/components/accounts/presets";
+import { monthLabel } from "@/features/finance/domain/labels";
 import { summarizeDraft, type SetupDraft } from "./draft";
 
 type ReviewStepProps = {
   draft: SetupDraft;
+  year: number;
   setDraft: React.Dispatch<React.SetStateAction<SetupDraft>>;
   onEdit: (step: number) => void;
 };
@@ -18,7 +20,7 @@ function plural(count: number, one: string, many: string) {
   return `${count} ${count === 1 ? one : many}`;
 }
 
-export function ReviewStep({ draft, setDraft, onEdit }: ReviewStepProps) {
+export function ReviewStep({ draft, year, setDraft, onEdit }: ReviewStepProps) {
   const parsed = parseDecimalInput(draft.cdiText);
   const cdi = parsed !== null && !Number.isNaN(parsed) && parsed > 0 && parsed <= 100 ? parsed : null;
   const summary = summarizeDraft(draft, cdi);
@@ -39,24 +41,21 @@ export function ReviewStep({ draft, setDraft, onEdit }: ReviewStepProps) {
       label: card.name,
       value: (
         <>
-          Fecha dia {card.closingDay}, vence dia {card.dueDay} · <Money cents={card.owedCents} /> nas faturas
+          Vence dia {card.dueDay}, fecha {card.closingDays} dias antes
+          {card.limitCents ? (
+            <>
+              {" "}
+              · limite <Money cents={card.limitCents} />
+            </>
+          ) : null}{" "}
+          ·{" "}
+          {card.settledThroughMonth
+            ? `paga até a fatura de ${monthLabel(card.settledThroughMonth, year)}`
+            : "nenhuma fatura paga ainda"}
         </>
       ),
       step: 1,
     })),
-    {
-      id: "installments",
-      label: "Parcelamentos",
-      value: summary.installmentCount ? (
-        <>
-          {plural(summary.installmentCount, "compra", "compras")} ·{" "}
-          <Money cents={summary.installmentsRemainingCents} /> nas próximas faturas
-        </>
-      ) : (
-        "Nenhum"
-      ),
-      step: 2,
-    },
     {
       id: "recurrings",
       label: "Fixas",
@@ -68,7 +67,7 @@ export function ReviewStep({ draft, setDraft, onEdit }: ReviewStepProps) {
       ) : (
         "Nenhuma"
       ),
-      step: 3,
+      step: 2,
     },
   ];
 

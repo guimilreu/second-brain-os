@@ -12,11 +12,12 @@ const CycleOverrideSchema = new Schema(
 
 const CardSchema = new Schema(
   {
-    closingDay: { type: Number, required: true, min: 1, max: 31 },
     dueDay: { type: Number, required: true, min: 1, max: 31 },
+    closingDaysBeforeDue: { type: Number, default: 7, min: 1, max: 25 },
     limitCents: { type: Number, default: null },
     reserveAccountId: { type: Schema.Types.ObjectId, ref: "Account", default: null },
     cycleOverrides: { type: [CycleOverrideSchema], default: [] },
+    settledThroughMonth: { type: String, default: null },
   },
   { _id: false },
 );

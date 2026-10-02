@@ -396,8 +396,12 @@ export function EntryForm({ shell, draft, editing, titleRef, descriptionRef, amo
         type === "refund"
           ? `Abate da ${invoiceLabel(preview.firstInvoice, currentYear)}`
           : preview.count > 1
-            ? `${preview.count}×${preview.installmentCents ? ` de ${formatCents(preview.installmentCents)}` : ""} · fatura de ${monthShort(preview.firstInvoice)} até ${monthShort(preview.lastInvoice)}`
-            : `Cai na ${invoiceLabel(preview.firstInvoice, currentYear)} · vence ${dayMonth(preview.dueDate)}`,
+            ? `${preview.count}×${preview.installmentCents ? ` de ${formatCents(preview.installmentCents)}` : ""} · fatura de ${monthShort(preview.firstInvoice)} até ${monthShort(preview.lastInvoice)}${
+                preview.settledCount ? ` · ${preview.settledCount} em faturas já pagas` : ""
+              }`
+            : preview.settledCount
+              ? `Cai na ${invoiceLabel(preview.firstInvoice, currentYear)} · já paga, fica no histórico`
+              : `Cai na ${invoiceLabel(preview.firstInvoice, currentYear)} · vence ${dayMonth(preview.dueDate)}`,
     });
   }
   if (impact) {
