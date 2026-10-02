@@ -1,0 +1,14 @@
+/** Traços do cérebro da marca (viewBox 48): dois hemisférios; no direito, a dobra é um gráfico subindo. */
+export const BRAIN_PATHS = [
+  "M22.5 10.5C19 9 14.8 10.4 13.8 13.6 10.4 14.1 8.8 17.6 10.3 20.6 8.2 23.1 8.8 27.2 11.9 28.6 11.4 32.2 14.4 35.1 18 34.6 19.6 37.4 21.8 38.3 22.5 37.6V10.5Z",
+  "M25.5 10.5C29 9 33.2 10.4 34.2 13.6 37.6 14.1 39.2 17.6 37.7 20.6 39.8 23.1 39.2 27.2 36.1 28.6 36.6 32.2 33.6 35.1 30 34.6 28.4 37.4 26.2 38.3 25.5 37.6V10.5Z",
+  "M18.5 15.5c-2 1-1.2 3.4-3.2 4.6M17.5 25c-1.5 .3-2.6 1.6-2.6 3.2",
+  "M28.2 30.4l2.8-3.3 2.3 1.9 2.5-4.3",
+];
+export const BRAIN_DOT = { cx: 35.8, cy: 24.7, r: 1.7 };
+
+/** SVG completo (fundo + cérebro com brilho) — ícone do app e da aba. `rounded` = cantos do quadrado. */
+export function brainSvg(rounded: boolean) {
+  const paths = BRAIN_PATHS.map((d) => `<path d="${d}"/>`).join("");
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><defs><linearGradient id="g" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#00d0ff"/><stop offset="1" stop-color="#c6f432"/></linearGradient><radialGradient id="bg" cx="0.3" cy="0.15" r="1.1"><stop offset="0" stop-color="#16323d"/><stop offset="0.65" stop-color="#0c0e11"/></radialGradient><filter id="glow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="1.6"/></filter></defs><rect x="0" y="0" width="48" height="48" rx="${rounded ? 14 : 0}" fill="url(#bg)"/><g fill="none" stroke="url(#g)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><g filter="url(#glow)" opacity="0.7">${paths}</g>${paths}</g><circle cx="${BRAIN_DOT.cx}" cy="${BRAIN_DOT.cy}" r="${BRAIN_DOT.r}" fill="#c6f432"/></svg>`;
+}

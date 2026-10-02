@@ -12,7 +12,7 @@ type RingProps = {
   children?: React.ReactNode;
 };
 
-/** Anel de progresso único com traço em gradiente e brilho. */
+/** Anel de progresso único com traço em gradiente. */
 export function Ring({ value, thickness = 10, from = "var(--chart-1)", to = "var(--chart-5)", className, children }: RingProps) {
   const id = useId().replace(/:/g, "");
   const radius = 50 - thickness / 2;
@@ -21,7 +21,7 @@ export function Ring({ value, thickness = 10, from = "var(--chart-1)", to = "var
 
   return (
     <div className={cn("relative aspect-square", className)}>
-      <svg viewBox="0 0 100 100" className="size-full -rotate-90 overflow-visible">
+      <svg viewBox="0 0 100 100" className="size-full -rotate-90">
         <defs>
           <linearGradient id={`ring-${id}`} x1="0" y1="0" x2="1" y2="1">
             <stop offset="0" stopColor={over ? "var(--negative)" : from} />
@@ -41,7 +41,6 @@ export function Ring({ value, thickness = 10, from = "var(--chart-1)", to = "var
             pathLength={100}
             strokeDasharray={`${pct} ${100 - pct}`}
             className="animate-arc"
-            style={{ filter: `drop-shadow(0 0 6px ${over ? "var(--negative)" : "color-mix(in oklch, var(--chart-1) 60%, transparent)"})` }}
           />
         ) : null}
       </svg>

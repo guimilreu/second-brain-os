@@ -7,7 +7,7 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "Quanto ainda dá para gastar, faturas, parcelas e cofres — do jeito do GM.",
     start_url: "/",
     display: "standalone",
-    background_color: "#f8f9fc",
+    background_color: "#0c0e11",
     theme_color: "#00d0ff",
     lang: "pt-BR",
     icons: [

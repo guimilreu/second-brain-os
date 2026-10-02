@@ -15,7 +15,7 @@ export function Topbar() {
   return (
     <header className="sticky top-0 z-20 flex h-16 items-center gap-2 bg-background/70 px-4 backdrop-blur-xl md:px-6 lg:hidden">
       <Link href="/" className="flex items-center gap-2.5">
-        <BrandMark className="size-8 rounded-[0.7rem] text-sm" />
+        <BrandMark className="size-8" />
         <span className="text-[0.9375rem] font-semibold tracking-tight">Second Brain</span>
       </Link>
       <div className="ml-auto flex items-center gap-1">
