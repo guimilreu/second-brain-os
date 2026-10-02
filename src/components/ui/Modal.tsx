@@ -30,7 +30,7 @@ export function Modal({ open, onClose, title, description, children, size = "md"
     <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
       <DialogContent className={cn(SIZE_CLASSES[size], "max-h-[90dvh] gap-5 overflow-y-auto")}>
         <DialogHeader className="gap-1 pr-8">
-          <DialogTitle className="text-lg font-bold tracking-tight">{title}</DialogTitle>
+          <DialogTitle className="text-xl font-semibold tracking-tight">{title}</DialogTitle>
           {description ? <DialogDescription>{description}</DialogDescription> : null}
         </DialogHeader>
         {children}

@@ -3,12 +3,12 @@ import { cn } from "@/lib/utils";
 type Tone = "neutral" | "primary" | "positive" | "negative" | "warning" | "info";
 
 const TONE_CLASSES: Record<Tone, string> = {
-  neutral: "bg-muted text-muted-foreground",
-  primary: "bg-accent text-accent-foreground",
-  positive: "bg-positive/12 text-positive",
-  negative: "bg-negative/12 text-negative",
-  warning: "bg-warning/15 text-warning",
-  info: "bg-info/12 text-info",
+  neutral: "bg-foreground/[0.07] text-muted-foreground",
+  primary: "bg-primary/15 text-primary-ink",
+  positive: "bg-positive/14 text-positive",
+  negative: "bg-negative/14 text-negative",
+  warning: "bg-warning/16 text-warning",
+  info: "bg-info/14 text-info",
 };
 
 type PillProps = {
@@ -21,7 +21,7 @@ export function Pill({ tone = "neutral", children, className }: PillProps) {
   return (
     <span
       className={cn(
-        "inline-flex h-5 items-center gap-1 rounded-md px-1.5 text-[0.6875rem] font-semibold whitespace-nowrap [&_svg]:size-3",
+        "inline-flex h-6 items-center gap-1 rounded-full px-2.5 text-[0.6875rem] font-semibold whitespace-nowrap [&_svg]:size-3",
         TONE_CLASSES[tone],
         className,
       )}

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { DonutRing } from "@/components/charts/DonutRing";
 import type { MonthKey } from "@/features/finance/domain/types";
 import { CategoryIcon } from "@/features/finance/components/shared/CategoryIcon";
 import { Meter } from "@/components/ui/Meter";
@@ -27,22 +28,54 @@ export function CategoryBreakdown({ rows, month, phase }: CategoryBreakdownProps
       {rows.length === 0 ? (
         <p className="px-5 py-6 text-sm text-muted-foreground">Nenhum gasto neste mês ainda.</p>
       ) : (
-        <ul className="divide-y divide-border">
-          {rows.map((row) => (
-            <CategoryItem
-              key={row.key}
-              row={row}
-              month={month}
-              phase={phase}
-            />
-          ))}
-        </ul>
+        <>
+          <CategoryDonut rows={rows} />
+          <ul className="divide-y divide-border">
+            {rows.map((row) => (
+              <CategoryItem
+                key={row.key}
+                row={row}
+                month={month}
+                phase={phase}
+                share={shareOf(row, rows)}
+              />
+            ))}
+          </ul>
+        </>
       )}
     </Panel>
   );
 }
 
-function CategoryItem({ row, month, phase }: { row: CategoryRow; month: MonthKey; phase: Phase }) {
+function totalOf(rows: CategoryRow[]) {
+  return rows.reduce((sum, row) => sum + Math.max(row.spentCents + row.expectedCents, 0), 0);
+}
+
+function shareOf(row: CategoryRow, rows: CategoryRow[]) {
+  const total = totalOf(rows);
+  return total > 0 ? (Math.max(row.spentCents + row.expectedCents, 0) / total) * 100 : 0;
+}
+
+/** Rosca do mês: cada categoria com a cor dela, total no meio. */
+function CategoryDonut({ rows }: { rows: CategoryRow[] }) {
+  const total = totalOf(rows);
+  const segments = rows
+    .filter((row) => row.spentCents + row.expectedCents > 0)
+    .map((row) => ({ key: row.key, value: row.spentCents + row.expectedCents, color: row.color ?? "#94a3b8", label: row.name }));
+  if (!segments.length) return null;
+  return (
+    <div className="flex justify-center px-5 pt-2 pb-5">
+      <DonutRing segments={segments} className="w-48">
+        <div>
+          <Money cents={total} compact className="display block text-2xl" />
+          <p className="mt-1 text-[0.6875rem] text-muted-foreground">no mês</p>
+        </div>
+      </DonutRing>
+    </div>
+  );
+}
+
+function CategoryItem({ row, month, phase, share }: { row: CategoryRow; month: MonthKey; phase: Phase; share: number }) {
   const committed = row.spentCents + row.expectedCents;
   const href = row.categoryId
     ? `/transactions?month=${month}&category=${row.categoryId}`
@@ -92,7 +125,7 @@ function CategoryItem({ row, month, phase }: { row: CategoryRow; month: MonthKey
     <li>
       <Link
         href={href}
-        className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-muted/40"
+        className="flex items-center gap-3 px-5 py-3.5 transition-colors hover:bg-foreground/[0.03]"
       >
         <CategoryIcon
           icon={row.icon}
@@ -123,7 +156,14 @@ function CategoryItem({ row, month, phase }: { row: CategoryRow; month: MonthKey
               tone="auto"
               className="mt-1.5"
             />
-          ) : null}
+          ) : (
+            <span className="mt-2 block h-1 w-full overflow-hidden rounded-full bg-foreground/[0.06]">
+              <span
+                className="block h-full rounded-full"
+                style={{ width: `${Math.max(share, 1.5)}%`, backgroundColor: row.color ?? "#94a3b8" }}
+              />
+            </span>
+          )}
           {meta.length ? (
             <span className="mt-1 flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
               {meta.map((item, index) => (

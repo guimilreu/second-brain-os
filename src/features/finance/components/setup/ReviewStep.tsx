@@ -82,7 +82,7 @@ export function ReviewStep({ draft, year, setDraft, onEdit }: ReviewStepProps) {
               placeholder="Ex.: 14,9"
             />
           </FormField>
-          <p className="rounded-lg bg-muted/60 px-3 py-2.5 text-[0.8125rem] sm:mt-6">
+          <p className="rounded-2xl bg-foreground/[0.04] px-3 py-2.5 text-[0.8125rem] sm:mt-6">
             {cdi ? (
               <>
                 Com CDI de {formatDecimal(cdi)}% ao ano, seu dinheiro rende cerca de{" "}

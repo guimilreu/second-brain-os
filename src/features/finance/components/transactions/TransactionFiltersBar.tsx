@@ -71,7 +71,7 @@ export function TransactionFiltersBar({
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex items-center rounded-lg border border-border bg-card p-0.5 shadow-xs">
+        <div className="flex items-center rounded-full bg-foreground/[0.05] p-1">
           <Button
             variant="ghost"
             size="icon-sm"

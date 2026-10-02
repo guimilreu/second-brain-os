@@ -17,7 +17,7 @@ export function Segmented<T extends string>({ options, value, onChange, classNam
   return (
     <div
       role="tablist"
-      className={cn("inline-flex max-w-full gap-0.5 overflow-x-auto rounded-lg bg-muted p-0.5 scrollbar-none", className)}
+      className={cn("inline-flex max-w-full gap-1 overflow-x-auto rounded-full bg-foreground/[0.06] p-1 scrollbar-none", className)}
     >
       {options.map((option) => {
         const active = option.value === value;
@@ -30,11 +30,11 @@ export function Segmented<T extends string>({ options, value, onChange, classNam
             aria-selected={active}
             onClick={() => onChange(option.value)}
             className={cn(
-              "inline-flex shrink-0 items-center gap-1.5 rounded-md font-semibold whitespace-nowrap transition-colors",
-              size === "sm" ? "h-7 px-2.5 text-xs" : "h-8 px-3 text-[0.8125rem]",
+              "inline-flex shrink-0 items-center gap-1.5 rounded-full font-semibold whitespace-nowrap transition-[background-color,color] duration-200",
+              size === "sm" ? "h-7 px-3 text-xs" : "h-8 px-3.5 text-[0.8125rem]",
               active
-                ? "bg-card text-foreground shadow-xs"
-                : "text-muted-foreground hover:text-foreground",
+                ? "bg-foreground text-background"
+                : "text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground",
             )}
           >
             {Icon ? <Icon className="size-3.5" /> : null}

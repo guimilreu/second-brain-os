@@ -146,7 +146,7 @@ function Totals({ incomeCents, expenseCents }: { incomeCents: Cents; expenseCent
   ];
   return (
     <section className="space-y-2">
-      <div className="grid grid-cols-3 divide-x divide-border rounded-xl border border-border bg-card shadow-xs">
+      <div className="tile grid grid-cols-3 divide-x divide-border">
         {cells.map((cell) => (
           <div
             key={cell.label}
@@ -285,7 +285,7 @@ function RecurringRow({ item, today, onEdit, onConfirm }: RecurringRowProps) {
   ].filter(Boolean);
 
   return (
-    <li className="relative flex items-start gap-3 px-4 py-3 transition-colors hover:bg-muted/40 sm:px-5">
+    <li className="relative flex items-start gap-3 px-4 py-3 transition-colors hover:bg-foreground/[0.03] sm:px-5">
       {/* Linha inteira abre a edição; os controles por cima ficam com z-10. */}
       <button
         type="button"

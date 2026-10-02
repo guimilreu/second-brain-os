@@ -17,9 +17,9 @@ type InstitutionMarkProps = {
 };
 
 const SIZES = {
-  sm: "size-6 rounded-md text-[0.625rem]",
-  md: "size-8 rounded-lg text-xs",
-  lg: "size-10 rounded-xl text-sm",
+  sm: "size-6 rounded-full text-[0.5625rem]",
+  md: "size-9 rounded-full text-[0.6875rem]",
+  lg: "size-11 rounded-full text-sm",
 } as const;
 
 /** Selo da instituição com a cor da marca — reconhecível de relance nas listas. */
@@ -28,7 +28,7 @@ export function InstitutionMark({ institution, name, size = "md", className }: I
   const label = brand.label || (name ?? "?").slice(0, 2).toUpperCase();
   return (
     <span
-      className={cn("grid shrink-0 place-items-center font-extrabold tracking-tight", SIZES[size], className)}
+      className={cn("grid shrink-0 place-items-center font-bold tracking-tight shadow-[inset_0_0_0_1px_rgba(255,255,255,0.12)]", SIZES[size], className)}
       style={{ backgroundColor: brand.background, color: brand.foreground }}
       aria-hidden
     >

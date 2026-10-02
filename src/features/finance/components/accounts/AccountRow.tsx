@@ -48,7 +48,7 @@ export function AccountRow({ item, operatingId, currentYear, onEdit }: AccountRo
     <li className={cn("group flex items-center gap-2 px-4 py-3", account.archived && "opacity-70")}>
       <Link
         href={href}
-        className="-mx-2 -my-1.5 flex min-w-0 flex-1 items-center gap-3 rounded-md px-2 py-1.5 transition-colors hover:bg-muted/50 focus-visible:bg-muted/50"
+        className="-mx-2 -my-1.5 flex min-w-0 flex-1 items-center gap-3 rounded-md px-2 py-1.5 transition-colors hover:bg-foreground/[0.03] focus-visible:bg-muted/50"
       >
         <AccountIcon kind={account.kind} color={account.color} className="self-start" />
         <div className="min-w-0 flex-1">

@@ -124,7 +124,7 @@ export function CommitmentsChart({ cardId, months, currentYear }: CommitmentsCha
                     />
                   )}
                 />
-                <BarStack radius={[4, 4, 0, 0]}>
+                <BarStack radius={[8, 8, 4, 4]}>
                   {SERIES.map((series) => (
                     <Bar
                       key={series.key}

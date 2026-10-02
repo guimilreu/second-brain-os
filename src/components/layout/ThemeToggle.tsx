@@ -9,7 +9,7 @@ const noopSubscribe = () => () => {};
 
 const LABELS = { light: "Claro", dark: "Escuro", system: "Sistema" } as const;
 
-export function ThemeToggle() {
+export function ThemeToggle({ size = "icon" }: { size?: "icon" | "icon-sm" }) {
   const { theme, setTheme } = useTheme();
   const mounted = useSyncExternalStore(noopSubscribe, () => true, () => false);
 
@@ -20,7 +20,7 @@ export function ThemeToggle() {
   return (
     <Button
       variant="ghost"
-      size="icon"
+      size={size}
       onClick={() => setTheme(next)}
       aria-label={`Tema: ${LABELS[current] ?? "Sistema"}. Alternar`}
       title={`Tema: ${LABELS[current] ?? "Sistema"}`}

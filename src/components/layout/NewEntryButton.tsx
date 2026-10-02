@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 import { useEntryStore } from "@/stores/entry-store";
 
 type NewEntryButtonProps = {
-  /** "fab" = botão redondo da barra inferior no mobile. */
-  variant?: "button" | "fab";
+  /** "fab" = botão redondo da barra do celular; "wide" = botão largo do menu lateral. */
+  variant?: "button" | "fab" | "wide";
 };
 
 function isTyping(target: EventTarget | null) {
@@ -19,7 +19,7 @@ export function NewEntryButton({ variant = "button" }: NewEntryButtonProps) {
   const openNew = useEntryStore((state) => state.openNew);
 
   useEffect(() => {
-    if (variant !== "button") return;
+    if (variant === "fab") return;
     // Atalho do ícone instalado ("Lançar") abre direto o formulário.
     const url = new URL(window.location.href);
     if (url.searchParams.get("lancar") === "1") {
@@ -30,7 +30,7 @@ export function NewEntryButton({ variant = "button" }: NewEntryButtonProps) {
   }, [openNew, variant]);
 
   useEffect(() => {
-    if (variant !== "button") return;
+    if (variant === "fab") return;
     // Atalho "N" para lançar de qualquer tela no desktop.
     function onKeyDown(event: KeyboardEvent) {
       if (event.key.toLowerCase() !== "n" || event.metaKey || event.ctrlKey || event.altKey) return;
@@ -46,11 +46,21 @@ export function NewEntryButton({ variant = "button" }: NewEntryButtonProps) {
     return (
       <Button
         size="icon-lg"
-        className="size-12 rounded-full shadow-md"
+        className="size-12 -translate-y-0.5 rounded-full"
         aria-label="Lançar"
         onClick={() => openNew()}
       >
-        <Plus className="size-5" />
+        <Plus className="size-6" strokeWidth={2.5} />
+      </Button>
+    );
+  }
+
+  if (variant === "wide") {
+    return (
+      <Button className="w-full justify-start" onClick={() => openNew()} title="Lançar (N)">
+        <Plus strokeWidth={2.5} />
+        Lançar
+        <kbd className="ml-auto rounded-full bg-primary-foreground/15 px-2 py-0.5 font-mono text-[0.625rem]">N</kbd>
       </Button>
     );
   }

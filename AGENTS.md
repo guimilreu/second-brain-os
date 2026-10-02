@@ -34,11 +34,11 @@ Sistema financeiro pessoal do GM, hospedável em `gm.socialsell.ai`. Usuário ú
 - Models: `Account` (contas, cofrinhos, cartão com `card`, metas com `goal`), `Transaction`, `Recurring`, `Category` (seed em `server/defaults.ts`; `systemKey` = categorias do sistema), `User` (`cdiAnnualPct`, `timezone`).
 - Dados do app antigo: categorias antigas são arquivadas (não apagadas) e trocadas pelas novas; lançamentos no formato antigo são ignorados (`server/indexes.ts`); os índices são alinhados ao schema uma vez por processo.
 - Extras de uso diário: PWA (instalável na tela inicial, atalho "Lançar"), atalho `N` para lançar, ⌘K para buscar e lançar, botão de ocultar valores.
-- UI: tokens em `src/app/globals.css` (neutro frio + ciano `#00d0ff` como primária — texto sobre ela é escuro; para texto/link na cor da marca use `text-primary-ink`; `positive`/`negative`/`warning`/`info`; `num` para valores); primitivos em `src/components/ui` (`Money` recebe **centavos**); componentes de domínio em `src/features/finance/components/<área>`.
+- UI "noir neon" (escuro por padrão, inspirado no Pierre): tokens em `src/app/globals.css` (ciano `#00d0ff` como primária — texto sobre ela é escuro; para texto/link na cor da marca use `text-primary-ink`; `positive`/`negative`/`warning`/`info`; paleta de dados `chart-1..8` e `lime`). Fonte Geist; `num` (dígitos tabulares) e `display` (número de destaque); `tile` é o cartão padrão (borda com brilho), `glass` as barras flutuantes. Gráficos próprios em `src/components/charts` (rosca, anel, bolhas, calendário de calor, barras da semana, mini barras, barra empilhada, ritmo do mês) — SVG/HTML puro, sem lib. Primitivos em `src/components/ui` (`Money` recebe **centavos**); componentes de domínio em `src/features/finance/components/<área>`; o Hoje é um mosaico (`today/TodayTiles.tsx` + dados em `today/todayCharts.ts`).
 
 ## Stack
 
-Next.js 16 (App Router), TypeScript strict, Tailwind v4, shadcn `base-nova` (`@base-ui/react`), Zustand (estado de UI), MongoDB/Mongoose, `bcryptjs` + `jose`, Recharts, Sonner, Lucide. Fontes Manrope e JetBrains Mono. Sem framer-motion: animações só CSS.
+Next.js 16 (App Router), TypeScript strict, Tailwind v4, shadcn `base-nova` (`@base-ui/react`), Zustand (estado de UI), MongoDB/Mongoose, `bcryptjs` + `jose`, Recharts, Sonner, Lucide. Fonte Geist (Sans e Mono). Sem framer-motion: animações só CSS (`animate-rise`, `animate-arc`, `animate-grow`, `animate-pop`).
 
 ## Padrões
 

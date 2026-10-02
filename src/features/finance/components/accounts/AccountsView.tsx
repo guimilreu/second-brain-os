@@ -14,6 +14,7 @@ import type { Account } from "@/features/finance/domain/types";
 import { formatCents } from "@/lib/utils/format";
 import { AccountDialog } from "./AccountDialog";
 import { AccountRow } from "./AccountRow";
+import { MoneyMap } from "./MoneyMap";
 import type { AccountsOverview } from "./overview";
 import { INSTITUTION_GROUP_LABELS } from "./presets";
 import { ReconcileDialog } from "./ReconcileDialog";
@@ -176,6 +177,8 @@ export function AccountsView({ overview, startReconciling, startYields }: Accoun
           }
         />
       </div>
+
+      <MoneyMap overview={overview} />
 
       <div className="space-y-4">
         {groups.map((group) => (

@@ -155,7 +155,7 @@ export function MonthCascade({ plan, details, accounts, today }: MonthCascadePro
         <Link
           id="gasto"
           href={`/transactions?month=${plan.month}`}
-          className="flex scroll-mt-20 items-center gap-3 px-5 py-3.5 transition-colors hover:bg-muted/40"
+          className="flex scroll-mt-20 items-center gap-3 px-5 py-3.5 transition-colors hover:bg-foreground/[0.03]"
         >
           <Operator symbol={plan.variableCents < 0 ? "+" : "−"} />
           <span className="min-w-0 flex-1">
@@ -250,7 +250,7 @@ function Step({ id, operator, label, hint, cents, children }: StepProps) {
           type="button"
           onClick={() => setOpen((current) => !current)}
           aria-expanded={open}
-          className="flex w-full items-center gap-3 px-5 py-3.5 text-left transition-colors hover:bg-muted/40"
+          className="flex w-full items-center gap-3 px-5 py-3.5 text-left transition-colors hover:bg-foreground/[0.03]"
         >
           {header}
         </button>
@@ -333,7 +333,7 @@ function EntryList({ entries, isIncome, today, onConfirm }: EntryListProps) {
               <button
                 type="button"
                 onClick={() => openEdit(transaction)}
-                className="flex w-full items-center gap-3 py-2 pr-12 pl-5 text-left transition-colors hover:bg-muted/50 sm:pl-14"
+                className="flex w-full items-center gap-3 py-2 pr-12 pl-5 text-left transition-colors hover:bg-foreground/[0.03] sm:pl-14"
               >
                 {body}
                 <Money
@@ -399,7 +399,7 @@ function InstallmentList({ entries }: { entries: InstallmentEntry[] }) {
             <button
               type="button"
               onClick={() => openEdit(transaction)}
-              className="flex w-full items-center gap-3 py-2 pr-12 pl-5 text-left transition-colors hover:bg-muted/50 sm:pl-14"
+              className="flex w-full items-center gap-3 py-2 pr-12 pl-5 text-left transition-colors hover:bg-foreground/[0.03] sm:pl-14"
             >
               <span className="min-w-0 flex-1">
                 <span className="flex min-w-0 items-center gap-1.5">

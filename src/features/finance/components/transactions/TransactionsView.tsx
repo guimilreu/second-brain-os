@@ -132,7 +132,7 @@ export function TransactionsView({
         </Button>
         {group ? (
           <>
-            <section className="rounded-xl border border-border bg-card p-4 shadow-xs">
+            <section className="tile p-5">
               <p className="text-xs font-semibold text-muted-foreground">Compra parcelada</p>
               <div className="mt-1 flex items-start justify-between gap-4">
                 <div className="min-w-0">
@@ -216,7 +216,7 @@ export function TransactionsView({
               </p>
             ) : (
               <div className="space-y-1.5">
-                <dl className="grid grid-cols-3 divide-x divide-border rounded-xl border border-border bg-card shadow-xs">
+                <dl className="tile grid grid-cols-3 divide-x divide-border">
                   <SummaryItem label="Entradas">
                     <Money
                       cents={summary.incomeCents}

@@ -10,10 +10,15 @@ type AppProvidersProps = {
 
 export function AppProviders({ children }: AppProvidersProps) {
   return (
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
       <ConfirmProvider>
         {children}
-        <Toaster position="bottom-right" closeButton toastOptions={{ className: "font-sans" }} />
+        <Toaster
+          position="bottom-right"
+          closeButton
+          theme="system"
+          toastOptions={{ className: "font-sans !rounded-2xl !border-border !bg-popover !text-popover-foreground !shadow-lg" }}
+        />
       </ConfirmProvider>
     </ThemeProvider>
   );

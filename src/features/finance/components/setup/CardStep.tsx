@@ -57,7 +57,7 @@ export function CardStep({ draft, setDraft, today }: CardStepProps) {
         ) : null,
       )}
 
-      <div className="flex gap-3 rounded-xl border border-border bg-card p-4 text-[0.8125rem] shadow-xs">
+      <div className="tile flex gap-3 p-5 text-[0.8125rem]">
         <History className="mt-0.5 size-4 shrink-0 text-primary-ink" />
         <p>
           <span className="font-semibold">As compras entram depois, com a data real.</span>{" "}
@@ -145,7 +145,7 @@ function CardForm({
         </div>
 
         {timeline ? (
-          <div className="rounded-lg bg-muted/60">
+          <div className="rounded-2xl bg-foreground/[0.04]">
             <ul className="divide-y divide-border/70">
               {timeline.invoices.map((invoice) => {
                 const isOpen = invoice.month === timeline.openMonth;

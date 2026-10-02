@@ -24,7 +24,7 @@ export function CardList({ items, today }: CardListProps) {
         <li key={card.id}>
           <Link
             href={`/cards/${card.id}`}
-            className="flex h-full flex-col gap-4 rounded-xl border border-border bg-card p-4 shadow-xs transition-colors hover:bg-muted/40"
+            className="tile flex h-full flex-col gap-4 p-5 transition-transform duration-300 hover:-translate-y-0.5"
           >
             <div className="flex items-center gap-3">
               <InstitutionMark

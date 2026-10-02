@@ -73,7 +73,7 @@ export function CategoryPicker({ id, top, all, selected, onSelect }: CategoryPic
       {expanded ? (
         <div
           id={`${id}-all`}
-          className="grid grid-cols-3 gap-1.5 rounded-lg border border-border bg-muted/40 p-1.5 sm:grid-cols-4"
+          className="grid grid-cols-3 gap-1.5 rounded-2xl border border-border bg-foreground/[0.03] p-1.5 sm:grid-cols-4"
         >
           {all.map((category) => {
             const active = selected?.id === category.id;

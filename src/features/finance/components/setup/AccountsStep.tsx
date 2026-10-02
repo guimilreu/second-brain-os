@@ -157,7 +157,7 @@ function AccountDraftRow({
           </>
         )}
         {goal ? (
-          <div className="col-span-2 grid grid-cols-2 gap-x-3 gap-y-3 rounded-lg bg-muted/50 p-3 sm:col-span-3 sm:grid-cols-3">
+          <div className="col-span-2 grid grid-cols-2 gap-x-3 gap-y-3 rounded-2xl bg-foreground/[0.04] p-3 sm:col-span-3 sm:grid-cols-3">
             <FormField label="Meta">
               <MoneyInput
                 value={goal.targetText}

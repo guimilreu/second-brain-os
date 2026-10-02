@@ -72,7 +72,7 @@ export function ForecastChart({ rows, selectedMonth, currentYear }: ForecastChar
       className="overflow-hidden"
     >
       <dl className="grid gap-3 px-5 pt-4 sm:grid-cols-2">
-        <div className="rounded-lg bg-muted/50 px-3 py-2.5">
+        <div className="rounded-2xl bg-foreground/[0.04] px-3 py-2.5">
           <dt className="text-xs font-medium text-muted-foreground">Mês mais apertado</dt>
           <dd className="mt-0.5 text-sm font-semibold">
             {label(tightest.month)} ·{" "}
@@ -84,7 +84,7 @@ export function ForecastChart({ rows, selectedMonth, currentYear }: ForecastChar
             {tightest.freeCents < 0 ? " no vermelho" : " livres"}
           </dd>
         </div>
-        <div className="rounded-lg bg-muted/50 px-3 py-2.5">
+        <div className="rounded-2xl bg-foreground/[0.04] px-3 py-2.5">
           <dt className="text-xs font-medium text-muted-foreground">Parcelas pela frente</dt>
           <dd className="mt-0.5 text-sm font-semibold">
             {installmentsTotal > 0 ? (
@@ -140,6 +140,7 @@ export function ForecastChart({ rows, selectedMonth, currentYear }: ForecastChar
                 <CartesianGrid
                   vertical={false}
                   stroke="var(--border)"
+                  strokeDasharray="3 5"
                 />
                 <XAxis
                   dataKey="month"
@@ -169,7 +170,7 @@ export function ForecastChart({ rows, selectedMonth, currentYear }: ForecastChar
                   strokeOpacity={0.35}
                 />
                 <Tooltip
-                  cursor={{ fill: "var(--muted)", opacity: 0.7 }}
+                  cursor={{ fill: "var(--foreground)", opacity: 0.05, radius: 12 } as never}
                   content={({ active, payload }) => (
                     <ForecastTooltip
                       active={active}
@@ -182,14 +183,14 @@ export function ForecastChart({ rows, selectedMonth, currentYear }: ForecastChar
                   dataKey="freeCents"
                   stackId="month"
                   name="Livre previsto"
-                  maxBarSize={24}
+                  maxBarSize={30}
                   shape={FreeBar}
                 />
                 <Bar
                   dataKey="installmentsCents"
                   stackId="month"
                   name="Parcelas"
-                  maxBarSize={24}
+                  maxBarSize={30}
                   shape={InstallmentsBar}
                 />
               </BarChart>
@@ -203,7 +204,7 @@ export function ForecastChart({ rows, selectedMonth, currentYear }: ForecastChar
               <Link
                 href={`/month?month=${row.month}`}
                 className={cn(
-                  "flex items-center gap-3 px-5 py-2.5 transition-colors hover:bg-muted/40",
+                  "flex items-center gap-3 px-5 py-2.5 transition-colors hover:bg-foreground/[0.03]",
                   row.month === selectedMonth && "bg-muted/40",
                 )}
               >
@@ -283,7 +284,7 @@ function FreeBar(props: BarShapeProps) {
       y={props.y}
       width={props.width}
       height={props.height}
-      radius={isEnd ? [4, 4, 0, 0] : 0}
+      radius={isEnd ? [8, 8, 4, 4] : 4}
       fill={row.freeCents < 0 ? SHORT_COLOR : FREE_COLOR}
       stroke="var(--card)"
       strokeWidth={2}
@@ -299,7 +300,7 @@ function InstallmentsBar(props: BarShapeProps) {
       y={props.y}
       width={props.width}
       height={props.height}
-      radius={[4, 4, 0, 0]}
+      radius={[8, 8, 4, 4]}
       fill={INSTALLMENTS_COLOR}
       stroke="var(--card)"
       strokeWidth={2}

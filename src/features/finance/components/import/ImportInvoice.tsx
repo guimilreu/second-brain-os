@@ -187,7 +187,7 @@ export function ImportInvoice({
           }}
           className={cn(
             "mt-4 flex cursor-pointer flex-col items-center gap-2 rounded-xl border border-dashed px-6 py-8 text-center transition-colors",
-            dragging ? "border-primary bg-accent" : "border-border hover:border-muted-foreground/40 hover:bg-muted/50",
+            dragging ? "border-primary bg-accent" : "border-border hover:border-muted-foreground/40 hover:bg-foreground/[0.03]",
           )}
         >
           <input

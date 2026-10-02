@@ -214,7 +214,7 @@ function ReconcileForm({ cardId, invoice, onDone }: FormProps) {
       </FormField>
 
       {diff !== null && realCents !== null ? (
-        <div className="space-y-2 rounded-lg border border-border bg-muted/40 p-3 text-[0.8125rem]">
+        <div className="space-y-2 rounded-2xl border border-border bg-foreground/[0.03] p-3 text-[0.8125rem]">
           <div className="flex items-center justify-between gap-3">
             <span className="text-muted-foreground">Aqui no app</span>
             <Money cents={invoice.totalCents} />

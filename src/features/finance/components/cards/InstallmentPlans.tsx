@@ -49,7 +49,7 @@ export function InstallmentPlans({ cardId, plans, categories, openMonth }: Insta
               <li key={plan.groupId}>
                 <Link
                   href={`/transactions?group=${plan.groupId}&month=all`}
-                  className="flex items-center gap-3 px-5 py-3.5 transition-colors hover:bg-muted/50"
+                  className="flex items-center gap-3 px-5 py-3.5 transition-colors hover:bg-foreground/[0.03]"
                 >
                   <CategoryIcon
                     icon={category?.icon}

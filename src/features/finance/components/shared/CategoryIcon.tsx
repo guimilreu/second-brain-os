@@ -89,19 +89,19 @@ type CategoryIconProps = {
 };
 
 const SIZES = {
-  sm: "size-7 rounded-md [&_svg]:size-3.5",
-  md: "size-9 rounded-lg [&_svg]:size-4",
-  lg: "size-11 rounded-xl [&_svg]:size-5",
+  sm: "size-7 rounded-full [&_svg]:size-3.5",
+  md: "size-10 rounded-full [&_svg]:size-[1.125rem]",
+  lg: "size-12 rounded-full [&_svg]:size-5",
 } as const;
 
-/** Quadrado com o ícone da categoria tingido com a cor dela. */
+/** Bolinha com o ícone da categoria tingido com a cor dela. */
 export function CategoryIcon({ icon, color, size = "md", className }: CategoryIconProps) {
   const Icon = (icon && CATEGORY_ICONS[icon]) || Tag;
   const tint = color ?? "#94a3b8";
   return (
     <span
       className={cn("grid shrink-0 place-items-center", SIZES[size], className)}
-      style={{ backgroundColor: `${tint}1f`, color: tint }}
+      style={{ backgroundColor: `color-mix(in oklch, ${tint} 16%, transparent)`, color: tint }}
       aria-hidden
     >
       <Icon />

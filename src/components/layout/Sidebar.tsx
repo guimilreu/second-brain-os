@@ -1,10 +1,14 @@
 "use client";
 
-import { LogOut, X } from "lucide-react";
+import { LogOut, Search, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { BrandMark } from "@/components/layout/BrandMark";
 import { NAV_SECTIONS, isNavActive } from "@/components/layout/nav";
+import { NewEntryButton } from "@/components/layout/NewEntryButton";
+import { PrivacyToggle } from "@/components/layout/PrivacyToggle";
+import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { useUiStore } from "@/stores/ui-store";
 import { cn } from "@/lib/utils";
@@ -25,6 +29,7 @@ function initials(name: string) {
 function SidebarContent({ userName, onNavigate }: SidebarProps & { onNavigate?: () => void }) {
   const pathname = usePathname();
   const router = useRouter();
+  const setCommandOpen = useUiStore((state) => state.setCommandOpen);
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -34,21 +39,37 @@ function SidebarContent({ userName, onNavigate }: SidebarProps & { onNavigate?: 
   }
 
   return (
-    <div className="flex h-full flex-col">
-      <Link href="/" onClick={onNavigate} className="flex h-14 shrink-0 items-center gap-2.5 px-4">
-        <span className="grid size-7 place-items-center rounded-md bg-primary text-[0.6875rem] font-extrabold text-primary-foreground">
-          SB
+    <div className="flex h-full flex-col p-3">
+      <Link href="/" onClick={onNavigate} className="flex items-center gap-2.5 px-2 pt-1 pb-4">
+        <BrandMark />
+        <span className="leading-tight">
+          <span className="block text-[0.9375rem] font-semibold tracking-tight">Second Brain</span>
+          <span className="block text-[0.6875rem] text-muted-foreground">suas finanças, no ritmo</span>
         </span>
-        <span className="text-sm font-bold tracking-tight">Second Brain</span>
       </Link>
 
-      <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-3 scrollbar-none" aria-label="Navegação principal">
+      <button
+        type="button"
+        onClick={() => {
+          onNavigate?.();
+          setCommandOpen(true);
+        }}
+        className="mb-2 flex h-10 items-center gap-2 rounded-full bg-foreground/[0.05] px-3.5 text-[0.8125rem] text-muted-foreground transition-colors hover:bg-foreground/[0.09] hover:text-foreground"
+      >
+        <Search className="size-4" />
+        Buscar
+        <kbd className="ml-auto rounded-full bg-foreground/[0.08] px-2 py-0.5 font-mono text-[0.625rem]">⌘K</kbd>
+      </button>
+
+      <div className="mb-4" onClick={onNavigate}>
+        <NewEntryButton variant="wide" />
+      </div>
+
+      <nav className="flex-1 space-y-4 overflow-y-auto scrollbar-none" aria-label="Navegação principal">
         {NAV_SECTIONS.map((section, index) => (
-          <div key={section.label ?? index} className="space-y-0.5">
+          <div key={section.label ?? index} className="space-y-1">
             {section.label ? (
-              <p className="px-2 pb-1 text-[0.6875rem] font-semibold tracking-wide text-muted-foreground/80 uppercase">
-                {section.label}
-              </p>
+              <p className="px-3.5 pb-0.5 text-[0.6875rem] font-medium text-muted-foreground/70">{section.label}</p>
             ) : null}
             {section.items.map((item) => {
               const active = isNavActive(pathname, item.href);
@@ -60,14 +81,22 @@ function SidebarContent({ userName, onNavigate }: SidebarProps & { onNavigate?: 
                   onClick={onNavigate}
                   aria-current={active ? "page" : undefined}
                   className={cn(
-                    "flex h-8 items-center gap-2.5 rounded-md px-2 text-[0.8125rem] font-semibold transition-colors",
+                    "group flex h-10 items-center gap-3 rounded-full px-3.5 text-[0.875rem] font-medium transition-[background-color,color] duration-200",
                     active
-                      ? "bg-sidebar-accent text-foreground"
-                      : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground",
+                      ? "bg-foreground/[0.08] text-foreground"
+                      : "text-muted-foreground hover:bg-foreground/[0.05] hover:text-foreground",
                   )}
                 >
-                  <Icon className={cn("size-4", active && "text-primary-ink")} />
+                  <Icon
+                    className={cn(
+                      "size-[1.125rem] transition-colors",
+                      active ? "text-primary-ink drop-shadow-[0_0_8px_var(--primary)]" : "group-hover:text-foreground",
+                    )}
+                  />
                   {item.label}
+                  {active ? (
+                    <span className="ml-auto size-1.5 rounded-full bg-primary shadow-[0_0_10px_var(--primary)]" />
+                  ) : null}
                 </Link>
               );
             })}
@@ -75,11 +104,13 @@ function SidebarContent({ userName, onNavigate }: SidebarProps & { onNavigate?: 
         ))}
       </nav>
 
-      <div className="flex items-center gap-2.5 border-t border-sidebar-border p-3">
-        <span className="grid size-8 shrink-0 place-items-center rounded-full bg-accent text-xs font-bold text-accent-foreground">
+      <div className="mt-3 flex items-center gap-1 rounded-full bg-foreground/[0.04] p-1">
+        <span className="grid size-8 shrink-0 place-items-center rounded-full bg-[linear-gradient(135deg,#9b87ff,#ff5ca8)] text-[0.6875rem] font-bold text-white">
           {initials(userName)}
         </span>
-        <p className="min-w-0 flex-1 truncate text-[0.8125rem] font-semibold">{userName}</p>
+        <p className="min-w-0 flex-1 truncate px-1 text-[0.8125rem] font-medium">{userName}</p>
+        <PrivacyToggle size="icon-sm" />
+        <ThemeToggle size="icon-sm" />
         <Button variant="ghost" size="icon-sm" onClick={handleLogout} aria-label="Sair" title="Sair">
           <LogOut />
         </Button>
@@ -94,7 +125,7 @@ export function Sidebar({ userName }: SidebarProps) {
 
   return (
     <>
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 border-r border-sidebar-border bg-sidebar lg:block">
+      <aside className="glass fixed inset-y-3 left-3 z-30 hidden w-[15.5rem] rounded-[1.75rem] shadow-lg lg:block">
         <SidebarContent userName={userName} />
       </aside>
 
@@ -102,15 +133,15 @@ export function Sidebar({ userName }: SidebarProps) {
         <div className="fixed inset-0 z-50 lg:hidden">
           <button
             type="button"
-            className="absolute inset-0 bg-black/40 animate-in fade-in-0"
+            className="absolute inset-0 bg-black/55 backdrop-blur-sm animate-in fade-in-0"
             onClick={() => setOpen(false)}
             aria-label="Fechar menu"
           />
-          <aside className="absolute inset-y-0 left-0 w-72 max-w-[85vw] border-r border-sidebar-border bg-sidebar shadow-lg animate-in slide-in-from-left duration-200">
+          <aside className="glass absolute inset-y-3 left-3 w-72 max-w-[85vw] rounded-[1.75rem] shadow-lg animate-in slide-in-from-left duration-300">
             <Button
               variant="ghost"
               size="icon-sm"
-              className="absolute top-3 right-3"
+              className="absolute top-4 right-4"
               onClick={() => setOpen(false)}
               aria-label="Fechar menu"
             >

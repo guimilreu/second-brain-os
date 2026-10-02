@@ -123,7 +123,7 @@ export function AttentionPanel({ insights, accounts, recurrings, today }: Attent
     >
       {insights.length === 0 ? (
         <div className="flex items-center gap-3 px-5 py-4">
-          <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-positive/12 text-positive">
+          <span className="grid size-9 shrink-0 place-items-center rounded-full bg-positive/12 text-positive">
             <CircleCheck className="size-4" />
           </span>
           <div>
@@ -145,7 +145,7 @@ export function AttentionPanel({ insights, accounts, recurrings, today }: Attent
                   className="flex flex-col gap-2.5 px-5 py-3.5 sm:flex-row sm:items-center sm:gap-4"
                 >
                   <div className="flex min-w-0 flex-1 items-start gap-3">
-                    <span className={cn("grid size-8 shrink-0 place-items-center rounded-lg", tone.className)}>
+                    <span className={cn("grid size-9 shrink-0 place-items-center rounded-full", tone.className)}>
                       <Icon className="size-4" />
                     </span>
                     <div className="min-w-0">

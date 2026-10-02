@@ -338,7 +338,7 @@ export function AccountDialog({ open, onClose, account, balanceCents, pockets, t
               </FormField>
             </div>
             {cyclePreview ? (
-              <p className="rounded-lg bg-muted/60 px-3 py-2.5 text-[0.8125rem]">
+              <p className="rounded-2xl bg-foreground/[0.04] px-3 py-2.5 text-[0.8125rem]">
                 {cyclePreview}
                 {isEdit ? " Mudar as datas reposiciona as compras nas faturas." : null}
               </p>
@@ -399,7 +399,7 @@ export function AccountDialog({ open, onClose, account, balanceCents, pockets, t
               <MoneyInput value={form.monthlyText} onValueChange={(monthlyText) => update({ monthlyText })} />
             </FormField>
             {monthlySuggestion ? (
-              <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-muted/60 px-3 py-2 text-[0.8125rem]">
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-foreground/[0.04] px-3 py-2 text-[0.8125rem]">
                 <span>
                   Para chegar lá em {monthShort(form.targetDate.slice(0, 7))}: {formatCents(monthlySuggestion)} por mês.
                 </span>

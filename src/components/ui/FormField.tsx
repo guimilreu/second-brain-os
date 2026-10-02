@@ -15,7 +15,7 @@ type FormFieldProps = {
 export function FormField({ label, hint, error, children, className }: FormFieldProps) {
   return (
     <div className={cn("flex flex-col gap-1.5", className)}>
-      <label className="text-[0.8125rem] font-semibold text-foreground">{label}</label>
+      <label className="text-[0.8125rem] font-medium text-muted-foreground">{label}</label>
       {children}
       {error ? (
         <p className="text-xs text-negative">{error}</p>
@@ -27,14 +27,14 @@ export function FormField({ label, hint, error, children, className }: FormField
 }
 
 const baseInputClasses =
-  "w-full rounded-lg border border-input bg-card px-3 text-base text-foreground shadow-xs sm:text-sm transition-[border-color,box-shadow] placeholder:text-muted-foreground/70 hover:border-muted-foreground/40 focus:border-ring focus:outline-none focus:ring-3 focus:ring-ring/20 disabled:cursor-not-allowed disabled:opacity-50";
+  "w-full rounded-xl border border-input bg-foreground/[0.03] px-3.5 text-base text-foreground sm:text-sm transition-[border-color,box-shadow,background-color] placeholder:text-muted-foreground/60 hover:border-foreground/20 focus:border-ring focus:bg-foreground/[0.05] focus:outline-none focus:ring-4 focus:ring-ring/15 disabled:cursor-not-allowed disabled:opacity-50";
 
 type InputProps = Omit<React.InputHTMLAttributes<HTMLInputElement>, "size"> & {
   value?: string | number;
 };
 
 export function Input({ className, ...props }: InputProps) {
-  return <input className={cn(baseInputClasses, "h-9", className)} {...props} />;
+  return <input className={cn(baseInputClasses, "h-11", className)} {...props} />;
 }
 
 type TextareaProps = Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, "size">;
@@ -57,7 +57,7 @@ const selectArrow =
 export function Select({ className, children, ...props }: SelectProps) {
   return (
     <select
-      className={cn(baseInputClasses, selectArrow, "h-9 cursor-pointer appearance-none pr-9", className)}
+      className={cn(baseInputClasses, selectArrow, "h-11 cursor-pointer appearance-none pr-9", className)}
       {...props}
     >
       {children}
@@ -105,7 +105,7 @@ type FormActionsProps = {
 
 export function FormActions({ onCancel, isLoading = false, submitLabel = "Salvar" }: FormActionsProps) {
   return (
-    <div className="-mx-6 -mb-6 mt-2 flex flex-col-reverse gap-2 border-t border-border bg-muted/40 px-6 py-4 sm:flex-row sm:justify-end">
+    <div className="-mx-6 -mb-6 mt-2 flex flex-col-reverse gap-2 border-t border-border bg-foreground/[0.02] px-6 py-4 sm:flex-row sm:justify-end">
       <Button type="button" variant="outline" onClick={onCancel}>
         Cancelar
       </Button>

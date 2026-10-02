@@ -98,7 +98,7 @@ export function TransactionRow({
         <button
           type="button"
           onClick={onClick}
-          className="-my-1 flex min-w-0 flex-1 items-center gap-3 rounded-md py-1 text-left transition-colors hover:bg-muted/50 focus-visible:bg-muted/50"
+          className="-my-1 flex min-w-0 flex-1 items-center gap-3 rounded-md py-1 text-left transition-colors hover:bg-foreground/[0.03] focus-visible:bg-muted/50"
         >
           {content}
         </button>

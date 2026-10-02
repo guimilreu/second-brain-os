@@ -69,14 +69,14 @@ export function TransactionList({
 
   if (flat) {
     return (
-      <div className="divide-y divide-border overflow-clip rounded-xl border border-border bg-card shadow-xs">
+      <div className="tile divide-y divide-border overflow-clip">
         {transactions.map(renderRow)}
       </div>
     );
   }
 
   return (
-    <div className="overflow-clip rounded-xl border border-border bg-card shadow-xs">
+    <div className="tile overflow-clip">
       {groupByDay(transactions).map((day) => (
         <section
           key={day.date}

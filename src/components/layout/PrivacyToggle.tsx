@@ -5,7 +5,7 @@ import { Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { readStoredHideValues, useUiStore } from "@/stores/ui-store";
 
-export function PrivacyToggle() {
+export function PrivacyToggle({ size = "icon" }: { size?: "icon" | "icon-sm" }) {
   const hideValues = useUiStore((state) => state.hideValues);
   const setHideValues = useUiStore((state) => state.setHideValues);
 
@@ -16,7 +16,7 @@ export function PrivacyToggle() {
   return (
     <Button
       variant="ghost"
-      size="icon"
+      size={size}
       onClick={() => setHideValues(!hideValues)}
       aria-label={hideValues ? "Mostrar valores" : "Ocultar valores"}
       aria-pressed={hideValues}

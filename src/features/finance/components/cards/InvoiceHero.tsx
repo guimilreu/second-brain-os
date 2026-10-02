@@ -41,7 +41,8 @@ export function InvoiceHero({
   settle,
 }: InvoiceHeroProps) {
   return (
-    <section className="overflow-hidden rounded-xl border border-border bg-card shadow-xs">
+    <section className="tile relative overflow-hidden animate-rise">
+      <div aria-hidden className="pointer-events-none absolute -top-28 -left-20 size-96 rounded-full bg-[radial-gradient(circle,color-mix(in_oklch,#820ad1_40%,transparent),transparent_65%)] blur-2xl" />
       <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)]">
         <InvoiceSummaryBlock
           cardId={cardId}
@@ -139,7 +140,7 @@ function InvoiceSummaryBlock({
       </p>
       <Money
         cents={headlineCents(invoice)}
-        className="mt-1 block text-3xl font-semibold sm:text-4xl"
+        className="display mt-2 block text-5xl sm:text-6xl"
       />
       <p className={cn("mt-2 text-sm font-semibold", TONE_CLASSES[line.tone])}>
         {line.text}

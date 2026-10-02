@@ -28,7 +28,7 @@ export function SetupDone() {
               <li key={link.href}>
                 <Link
                   href={link.href}
-                  className="flex items-center gap-3 px-5 py-3.5 transition-colors hover:bg-muted/50 focus-visible:bg-muted/50"
+                  className="flex items-center gap-3 px-5 py-3.5 transition-colors hover:bg-foreground/[0.03] focus-visible:bg-muted/50"
                 >
                   <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-accent text-accent-foreground">
                     <Icon className="size-4" />

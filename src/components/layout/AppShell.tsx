@@ -15,9 +15,9 @@ export function AppShell({ children, userName, shell }: AppShellProps) {
   return (
     <div className="min-h-dvh">
       <Sidebar userName={userName} />
-      <div className="lg:pl-60">
+      <div className="lg:pl-[17rem]">
         <Topbar />
-        <main className="mx-auto w-full max-w-7xl px-4 pt-6 pb-24 sm:pb-12 md:px-6 lg:px-8 lg:pt-8">
+        <main className="mx-auto w-full max-w-[84rem] px-4 pt-4 pb-32 sm:pb-12 md:px-6 lg:px-8 lg:pt-8">
           {children}
         </main>
       </div>

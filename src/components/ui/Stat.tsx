@@ -21,13 +21,17 @@ const TONE_CLASSES: Record<Tone, string> = {
 
 export function Stat({ label, value, hint, tone = "default", icon: Icon, className }: StatProps) {
   return (
-    <div className={cn("rounded-xl border border-border bg-card p-4 shadow-xs", className)}>
+    <div className={cn("tile p-5", className)}>
       <div className="flex items-center justify-between gap-2">
-        <p className="text-[0.8125rem] font-medium text-muted-foreground">{label}</p>
-        {Icon ? <Icon className="size-4 text-muted-foreground/70" /> : null}
+        <p className="text-[0.8125rem] text-muted-foreground">{label}</p>
+        {Icon ? (
+          <span className="grid size-8 place-items-center rounded-full bg-foreground/[0.06] text-muted-foreground">
+            <Icon className="size-4" />
+          </span>
+        ) : null}
       </div>
-      <p className={cn("num mt-2 text-xl font-semibold md:text-2xl", TONE_CLASSES[tone])}>{value}</p>
-      {hint ? <p className="mt-1 text-xs text-muted-foreground">{hint}</p> : null}
+      <p className={cn("display mt-3 text-[1.75rem]", TONE_CLASSES[tone])}>{value}</p>
+      {hint ? <p className="mt-2 text-xs text-muted-foreground">{hint}</p> : null}
     </div>
   );
 }

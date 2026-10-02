@@ -10,7 +10,7 @@ type MeterProps = {
 };
 
 const TONE_CLASSES = {
-  primary: "bg-primary",
+  primary: "bg-primary shadow-[0_0_14px_-2px_var(--primary)]",
   positive: "bg-positive",
   negative: "bg-negative",
   warning: "bg-warning",
@@ -22,14 +22,14 @@ export function Meter({ value, tone = "primary", className, color }: MeterProps)
     tone === "auto" ? (value > 100 ? "negative" : value >= 85 ? "warning" : "positive") : tone;
   return (
     <div
-      className={cn("h-1.5 w-full overflow-hidden rounded-full bg-muted", className)}
+      className={cn("h-2 w-full overflow-hidden rounded-full bg-foreground/[0.07]", className)}
       role="progressbar"
       aria-valuenow={Math.round(value)}
       aria-valuemin={0}
       aria-valuemax={100}
     >
       <div
-        className={cn("h-full rounded-full transition-[width] duration-500", !color && TONE_CLASSES[resolved])}
+        className={cn("h-full rounded-full transition-[width] duration-700 ease-out", !color && TONE_CLASSES[resolved])}
         style={{ width: `${clamped}%`, backgroundColor: color }}
       />
     </div>

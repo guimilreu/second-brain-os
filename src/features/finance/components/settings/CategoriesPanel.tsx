@@ -103,7 +103,7 @@ export function CategoriesPanel({ categories, className }: CategoriesPanelProps)
                     <button
                       type="button"
                       onClick={() => openEditor(category)}
-                      className="-mx-2 -my-1 flex min-w-0 flex-1 items-center gap-3 rounded-md px-2 py-2 text-left transition-colors hover:bg-muted/50 focus-visible:bg-muted/50"
+                      className="-mx-2 -my-1 flex min-w-0 flex-1 items-center gap-3 rounded-md px-2 py-2 text-left transition-colors hover:bg-foreground/[0.03] focus-visible:bg-muted/50"
                     >
                       {content}
                     </button>

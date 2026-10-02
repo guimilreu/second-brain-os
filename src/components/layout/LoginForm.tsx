@@ -3,6 +3,7 @@
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { BrandMark } from "@/components/layout/BrandMark";
 import { Button } from "@/components/ui/button";
 import { FormField, Input } from "@/components/ui/FormField";
 
@@ -48,15 +49,13 @@ export function LoginForm() {
     // POST: enviado antes de o JS carregar, o navegador não põe e-mail e senha na URL (nem nos logs).
     <form onSubmit={handleSubmit} method="post" className="space-y-6">
       <div className="flex items-center gap-2.5 lg:hidden">
-        <span className="grid size-8 place-items-center rounded-md bg-primary text-xs font-extrabold text-primary-foreground">
-          SB
-        </span>
-        <span className="font-bold tracking-tight">Second Brain</span>
+        <BrandMark />
+        <span className="text-[0.9375rem] font-semibold tracking-tight">Second Brain</span>
       </div>
 
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Entrar</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Use o e-mail e a senha da sua conta.</p>
+        <h1 className="text-[1.75rem] font-semibold tracking-tight">Bem-vindo de volta</h1>
+        <p className="mt-1 text-sm text-muted-foreground">Entre com o e-mail e a senha da sua conta.</p>
       </div>
 
       <div className="space-y-4">
@@ -68,7 +67,7 @@ export function LoginForm() {
             placeholder="voce@email.com"
             autoComplete="email"
             required
-            className="h-10"
+            className="h-12"
           />
         </FormField>
 
@@ -80,12 +79,12 @@ export function LoginForm() {
               type={showPassword ? "text" : "password"}
               autoComplete="current-password"
               required
-              className="h-10 pr-10"
+              className="h-12 pr-11"
             />
             <button
               type="button"
               onClick={() => setShowPassword((value) => !value)}
-              className="absolute top-1/2 right-2 grid size-7 -translate-y-1/2 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              className="absolute top-1/2 right-2 grid size-8 -translate-y-1/2 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-foreground/[0.07] hover:text-foreground"
               aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
             >
               {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}

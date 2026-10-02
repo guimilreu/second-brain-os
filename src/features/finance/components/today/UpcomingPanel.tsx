@@ -88,7 +88,7 @@ function UpcomingRow({ item }: { item: UpcomingItem }) {
     </>
   );
   const rowClass = "flex items-center gap-3 px-5 py-2";
-  const interactiveClass = `${rowClass} w-full text-left transition-colors hover:bg-muted/50`;
+  const interactiveClass = `${rowClass} w-full text-left transition-colors hover:bg-foreground/[0.03]`;
 
   return (
     <li>
