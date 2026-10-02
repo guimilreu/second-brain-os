@@ -26,7 +26,7 @@ export function DonutRing({ segments, thickness = 11, className, children }: Don
 
   return (
     <div className={cn("relative aspect-square", className)}>
-      <svg viewBox="0 0 100 100" className="size-full -rotate-90">
+      <svg viewBox="0 0 100 100" className="size-full -rotate-90 overflow-visible">
         <circle cx={R} cy={R} r={radius} fill="none" stroke="currentColor" strokeOpacity={0.07} strokeWidth={thickness} />
         {total > 0
           ? segments.map((segment, index) => {

@@ -21,7 +21,7 @@ export function Ring({ value, thickness = 10, from = "var(--chart-1)", to = "var
 
   return (
     <div className={cn("relative aspect-square", className)}>
-      <svg viewBox="0 0 100 100" className="size-full -rotate-90">
+      <svg viewBox="0 0 100 100" className="size-full -rotate-90 overflow-visible">
         <defs>
           <linearGradient id={`ring-${id}`} x1="0" y1="0" x2="1" y2="1">
             <stop offset="0" stopColor={over ? "var(--negative)" : from} />
