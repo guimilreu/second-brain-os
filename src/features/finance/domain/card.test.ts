@@ -7,6 +7,7 @@ import {
   invoiceMonthFor,
   summarizeInvoices,
 } from "./card";
+import { isBankHoliday } from "./dates";
 import { NUBANK_CARD, scenarioAccounts, tx } from "./fixtures.test-utils";
 
 describe("ciclo da fatura (vence dia 5, fecha 7 dias antes — regra do Nubank)", () => {
@@ -113,6 +114,33 @@ describe("faturas pagas antes do app", () => {
     expect(cardUsedLimitCents(invoices)).toBe(7 * 30_000);
     // Reserva: fatura de setembro (fechada) + outubro (aberta).
     expect(cardReserveNeededCents(invoices)).toBe(2 * 30_000);
+  });
+});
+
+describe("vencimento em dia útil (datas reais do Nubank)", () => {
+  it("fim de semana e feriado empurram o vencimento; o fechamento continua 7 dias antes do dia 5", () => {
+    // 05/07/2026 é domingo → segunda 06/07.
+    expect(invoiceDates(NUBANK_CARD, "2026-06")).toEqual({ closingDate: "2026-06-28", dueDate: "2026-07-06" });
+    // 05/09/2026 é sábado e 07/09 é feriado → terça 08/09.
+    expect(invoiceDates(NUBANK_CARD, "2026-08")).toEqual({ closingDate: "2026-08-29", dueDate: "2026-09-08" });
+    // 05/12/2026 é sábado → segunda 07/12.
+    expect(invoiceDates(NUBANK_CARD, "2026-11")).toEqual({ closingDate: "2026-11-28", dueDate: "2026-12-07" });
+  });
+
+  it("feriados móveis batem com o calendário da FEBRABAN de 2026", () => {
+    for (const date of ["2026-02-16", "2026-02-17", "2026-04-03", "2026-06-04", "2026-09-07", "2026-11-20"]) {
+      expect(isBankHoliday(date)).toBe(true);
+    }
+    expect(isBankHoliday("2026-02-18")).toBe(false);
+  });
+
+  it("pagar no dia útil seguinte não é atraso", () => {
+    const [card] = scenarioAccounts().filter((account) => account.id === "nu-card");
+    const charge = tx({ type: "expense", amountCents: 10_000, accountId: "nu-card", date: "2026-08-10", invoiceMonth: "2026-08" });
+    const onTime = summarizeInvoices(card, [charge], "2026-09-07").find((invoice) => invoice.month === "2026-08");
+    const late = summarizeInvoices(card, [charge], "2026-09-09").find((invoice) => invoice.month === "2026-08");
+    expect(onTime?.state).toBe("closed");
+    expect(late?.state).toBe("overdue");
   });
 });
 

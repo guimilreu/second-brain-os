@@ -1,17 +1,19 @@
-import { addDays, addMonths, dayInMonth, monthOf } from "./dates";
+import { addDays, addMonths, dayInMonth, monthOf, nextBusinessDay } from "./dates";
 import type { Account, CardConfig, Cents, DateStr, MonthKey, Transaction } from "./types";
 
 /**
  * Datas de fechamento e vencimento da fatura identificada pelo mês em que fecha.
- * O vencimento é fixo; o fechamento é N dias antes dele, então cai em dias diferentes a cada mês.
+ * O fechamento é N dias antes do vencimento nominal, então cai em dias diferentes a cada mês. Se o
+ * vencimento cai em fim de semana ou feriado bancário, passa para o próximo dia útil; o fechamento não muda
+ * (Nubank: vence 05/09/2026, sábado → 08/09, porque 07/09 é feriado; fechou 29/08 do mesmo jeito).
  */
 export function invoiceDates(card: CardConfig, month: MonthKey): { closingDate: DateStr; dueDate: DateStr } {
   const override = card.cycleOverrides.find((item) => item.month === month);
   if (override) return { closingDate: override.closingDate, dueDate: override.dueDate };
   // Vencimento depois do fechamento no mesmo mês (dia 15, fecha 7 antes = dia 8) ou só no mês seguinte.
   const dueMonth = card.dueDay > card.closingDaysBeforeDue ? month : addMonths(month, 1);
-  const dueDate = dayInMonth(dueMonth, card.dueDay);
-  return { closingDate: addDays(dueDate, -card.closingDaysBeforeDue), dueDate };
+  const nominalDue = dayInMonth(dueMonth, card.dueDay);
+  return { closingDate: addDays(nominalDue, -card.closingDaysBeforeDue), dueDate: nextBusinessDay(nominalDue) };
 }
 
 /**

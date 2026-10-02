@@ -90,3 +90,32 @@ export function daysLeftInMonth(today: DateStr): number {
 export function weekdayOf(date: DateStr): number {
   return new Date(toUtc(date)).getUTCDay();
 }
+
+/** Domingo de Páscoa (algoritmo de Meeus/Jones/Butcher). */
+function easterSunday(year: number): DateStr {
+  const a = year % 19;
+  const b = Math.floor(year / 100);
+  const c = year % 100;
+  const h = (19 * a + b - Math.floor(b / 4) - Math.floor((b - Math.floor((8 * b + 13) / 25)) / 3) + 15) % 30;
+  const l = (32 + 2 * (b % 4) + 2 * Math.floor(c / 4) - h - (c % 4)) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31);
+  const day = ((h + l - 7 * m + 114) % 31) + 1;
+  return toDateStr(year, month, day);
+}
+
+const FIXED_BANK_HOLIDAYS = ["01-01", "04-21", "05-01", "09-07", "10-12", "11-02", "11-15", "11-20", "12-25"];
+
+/** Feriado bancário nacional (calendário da FEBRABAN): fixos + Carnaval, Sexta-feira da Paixão e Corpus Christi. */
+export function isBankHoliday(date: DateStr): boolean {
+  if (FIXED_BANK_HOLIDAYS.includes(date.slice(5))) return true;
+  const easter = easterSunday(parseDateStr(date).year);
+  return [-48, -47, -2, 60].some((offset) => addDays(easter, offset) === date);
+}
+
+/** A própria data se for dia útil bancário; senão, o próximo (vencimento que cai no fim de semana ou feriado). */
+export function nextBusinessDay(date: DateStr): DateStr {
+  let day = date;
+  while (weekdayOf(day) === 0 || weekdayOf(day) === 6 || isBankHoliday(day)) day = addDays(day, 1);
+  return day;
+}
